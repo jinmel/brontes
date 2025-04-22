@@ -1,7 +1,7 @@
 [package]
 name = "brontes-clickhouse"
 version = "0.1.0"
-edition = "2025"
+edition = "2021"
 authors = ["Eisen Labs"]
 description = "CEX integration for Brontes"
 

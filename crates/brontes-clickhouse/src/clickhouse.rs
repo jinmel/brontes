@@ -34,11 +34,14 @@ impl ClickHouseConfig {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PriceUpdate {
     pub symbol: String,
-    pub price: f64,
     pub timestamp: u64,
+    pub ask_amount: f64,
+    pub ask_price: f64,
+    pub bid_price: f64,
+    pub bid_amount: f64,
 }
 
 pub struct ClickHouseWriter {
@@ -79,15 +82,18 @@ impl ClickHouseWriter {
                 let mut block = Block::new();
                 for update in updates {
                     block.push(row!(
-                        symbol: update.symbol,
                         exchange: "binance".to_string(),
-                        price: update.price,
+                        symbol: update.symbol,
                         timestamp: update.timestamp,
+                        ask_amount: update.ask_amount,
+                        ask_price: update.ask_price,
+                        bid_price: update.bid_price,
+                        bid_amount: update.bid_amount,
                     ))?;
                 }
 
                 let mut client = self.pool.get_handle().await?;
-                client.insert("cex.normalized_trades", block).await?;
+                client.insert("cex.normalized_quotes", block).await?;
                 info!("Inserted {} price updates to ClickHouse", updates_len);
             }
         }
