@@ -1,9 +1,9 @@
 [package]
 name = "brontes-clickhouse"
 version = "0.1.0"
-edition = "2021"
-authors = ["Brontes Team"]
-description = "ClickHouse integration for Brontes"
+edition = "2025"
+authors = ["Eisen Labs"]
+description = "CEX integration for Brontes"
 
 [dependencies]
 clickhouse-rs = "1.1.0-alpha.1"
