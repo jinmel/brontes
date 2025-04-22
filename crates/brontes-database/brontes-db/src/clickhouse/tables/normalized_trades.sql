@@ -1,11 +1,12 @@
-CREATE TABLE cex.normalized_trades (
-    symbol LowCardinality(String),           -- Trading pair symbol (e.g., "BTC/USDT")
-    exchange LowCardinality(String),         -- Exchange name
-    side LowCardinality(String),             -- Trade side (e.g., "buy" or "sell")
-    timestamp UInt64,        -- Unix timestamp in microseconds
-    amount Float64,          -- Trade amount/volume
-    price Float64            -- Trade price
+CREATE TABLE cex.normalized_trades 
+(
+    `exchange` String,               -- Exchange name
+    `symbol` String,                 -- Trading pair symbol
+    `timestamp` UInt64,             -- Microsecond timestamp
+    `side` String,                  -- Trade side (buy/sell)
+    `price` Float64,                -- Trade price
+    `amount` Float64                -- Trade amount/volume
 )
 ENGINE = MergeTree()
-PRIMARY KEY (timestamp, symbol)
-ORDER BY (timestamp, symbol)
+PRIMARY KEY (timestamp, exchange, symbol)
+ORDER BY (timestamp, exchange, symbol);
