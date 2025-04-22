@@ -1,0 +1,15 @@
+[package]
+name = "brontes-clickhouse"
+version = "0.1.0"
+edition = "2021"
+authors = ["Brontes Team"]
+description = "ClickHouse integration for Brontes"
+
+[dependencies]
+clickhouse-rs = "1.1.0-alpha.1"
+tokio = { version = "1.0", features = ["full"] }
+anyhow = "1.0"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+binance = { git = "https://github.com/wisespace-io/binance-rs.git" }
+dotenv = "0.15.0" 
