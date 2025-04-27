@@ -1,11 +1,10 @@
-use anyhow::Result;
 use clickhouse_rs::{Pool, Block, row};
 use tokio::sync::mpsc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::info;
-
+use eyre::Result;
 #[derive(Debug)]
 pub struct ClickHouseConfig {
     pub url: String,
@@ -16,7 +15,7 @@ pub struct ClickHouseConfig {
 }
 
 impl ClickHouseConfig {
-    pub fn from_env() -> Result<Self, anyhow::Error> {
+    pub fn from_env() -> Result<Self> {
         Ok(Self {
             url: std::env::var("CLICKHOUSE_URL")?,
             port: std::env::var("CLICKHOUSE_PORT")?,

@@ -80,6 +80,9 @@ revm-primitives = { version = "3.1", features = [
 ], default-features = false }
 revm-inspectors = { git = "https://github.com/paradigmxyz/evm-inspectors", rev = "dc614ee" }
 
+# exchange connectors
+
+
 
 # Alloy
 alloy-sol-types = { version = "0.7.0", features = ["json"] }
@@ -106,6 +109,8 @@ alloy-consensus = { git = "https://github.com/alloy-rs/alloy.git", rev = "39b869
 
 # Async
 tokio = { version = "1.13.0", features = ["full", "tracing"] }
+tokio-tungstenite = "0.26.2"
+tokio-stream = "0.1.17"
 futures = "0.3.28"
 async-trait = "0.1.73"
 async-rate-limiter = { git = "https://github.com/jnoorchashm37/async-rate-limiter" }
@@ -134,9 +139,10 @@ eyre = "0.6.8"
 hyper = "0.14.25"
 hyper-tls = "0.5.0"
 reqwest = "0.12.2"
+url = "2.5.0"
 
 # Serde
-serde = "1.0.205"
+serde = { version = "1.0.205", features = ["derive"] }
 serde_json = "1.0.1"
 serde_with = "3.4.0"
 serde_repr = "0.1.16"
