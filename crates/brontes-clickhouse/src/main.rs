@@ -5,11 +5,8 @@ use dotenv::dotenv;
 use tokio::sync::mpsc;
 use eyre::Result;
 
-mod clickhouse;
 mod models;
 mod streams;
-
-use clickhouse::{ClickHouseConfig, ClickHouseWriter};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -21,8 +18,6 @@ async fn main() -> Result<()> {
         .with_max_level(tracing::Level::INFO)
         .finish();
     tracing::subscriber::set_global_default(subscriber)?;
-
-    let clickhouse_config = ClickHouseConfig::from_env()?;
 
     Ok(())
 } 
