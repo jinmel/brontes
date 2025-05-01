@@ -1,46 +1,94 @@
 pub mod binance;
 
-use eyre::Result;
-use tokio_tungstenite::WebSocketStream;
+use tokio_stream::wrappers::ReceiverStream;
 use crate::models::{NormalizedTrade, NormalizedQuote};
-use futures::stream::Stream;
+use futures::stream::{Stream, StreamExt};
 use async_trait::async_trait;
-use std::fmt;
-use tokio::io::{AsyncRead, AsyncWrite};
+use tokio_tungstenite::connect_async;
+use tokio_tungstenite::tungstenite::Message;
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
 pub enum StreamConnectionError {
+    #[error("Connection failed: {0}")]
     ConnectionFailed(String),
+    #[error("Disconnection failed: {0}")]
     DisconnectionFailed(String),
+    #[error("Stream error: {0}")]
     StreamError(String),
+    #[error("Stream not connected: {0}")]
     StreamNotConnected(String),
 }
 
-impl std::error::Error for StreamConnectionError {}
+pub struct ExchangeStream<T: Send + 'static> {
+    inner: ReceiverStream<Result<T, StreamConnectionError>>,
+    handle: tokio::task::JoinHandle<()>,
+}
 
-impl fmt::Display for StreamConnectionError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            StreamConnectionError::ConnectionFailed(msg) => write!(f, "Connection failed: {}", msg),
-            StreamConnectionError::DisconnectionFailed(msg) => write!(f, "Disconnection failed: {}", msg),
-            StreamConnectionError::StreamError(msg) => write!(f, "Stream error: {}", msg),
-            StreamConnectionError::StreamNotConnected(msg) => write!(f, "Stream not connected: {}", msg),
-        }
+impl<T: Send + 'static> ExchangeStream<T> {
+    pub async fn new<F>(
+        url: &str,
+        parser: F,
+    ) -> Result<Self, StreamConnectionError>
+    where
+        F: Fn(Message) -> Result<T, StreamConnectionError> + Send + Sync + 'static,
+    {
+        let (mut ws, _) = connect_async(url)
+            .await
+            .map_err(|e| StreamConnectionError::ConnectionFailed(e.to_string()))?;
+
+        let (tx, rx) = tokio::sync::mpsc::channel(100);
+
+        let handle = tokio::spawn(async move {
+            while let Some(msg) = ws.next().await {
+                let out = msg
+                    .map_err(|e| StreamConnectionError::ConnectionFailed(e.to_string()))
+                    .and_then(&parser);
+                if tx.send(out).await.is_err() {
+                    break;
+                }
+            }
+        });
+
+        Ok(Self { inner: ReceiverStream::new(rx), handle })
+    }
+
+    pub fn shutdown(self) {
+        self.handle.abort();
+    }
+}
+
+impl<T: Send + 'static> Stream for ExchangeStream<T> {
+    type Item = Result<T, StreamConnectionError>;
+
+    fn poll_next(mut self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Option<Self::Item>> {
+        std::pin::Pin::new(&mut self.inner).poll_next(cx)
+    }
+}
+
+impl<T: Send + 'static> Drop for ExchangeStream<T> {
+    fn drop(&mut self) {
+        self.handle.abort();
     }
 }
 
 #[async_trait]
-pub trait StreamConnection<T> where T: AsyncRead + AsyncWrite + Unpin
-{
-    type Error: std::error::Error + Send + Sync + 'static; 
+pub trait Exchange {
+    type TradeStream: Stream<Item = Result<NormalizedTrade, StreamConnectionError>> + Send + Unpin + 'static;
+    type QuoteStream: Stream<Item = Result<NormalizedQuote, StreamConnectionError>> + Send + Unpin + 'static;
 
-    async fn connect<'a>(&'a mut self) -> Result<&'a WebSocketStream<T>, Self::Error>;
-    async fn disconnect(&mut self) -> Result<(), Self::Error>;
-    async fn get_stream<'a>(&'a self) -> Result<&'a WebSocketStream<T>, Self::Error>;
+    async fn normalized_trades(&self) -> Result<Self::TradeStream, StreamConnectionError>;
+    async fn normalized_quotes(&self) -> Result<Self::QuoteStream, StreamConnectionError>;
 }
 
-#[async_trait]
-pub trait Exchange<T> where T: AsyncRead + AsyncWrite + Unpin {
-    async fn normalized_trades(&self) -> Result<impl Stream<Item = Result<NormalizedTrade, StreamConnectionError>> + Send + '_, StreamConnectionError>;
-    async fn normalized_quotes(&self) -> Result<impl Stream<Item = Result<NormalizedQuote, StreamConnectionError>> + Send + '_, StreamConnectionError>;
+// For backwards compatibility, keep spawn_ws_stream as a thin wrapper around ExchangeStream::new
+async fn spawn_ws_stream<T, F>(
+    url: &str,
+    parser: F,
+) -> Result<ExchangeStream<T>, StreamConnectionError>
+where
+    T: Send + 'static,
+    F: Fn(Message) -> Result<T, StreamConnectionError> + Send + Sync + 'static,
+{
+    ExchangeStream::new(url, parser).await
 }
