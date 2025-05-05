@@ -1,5 +1,11 @@
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug)]
+pub enum NormalizedEvent {
+    Trade(NormalizedTrade),
+    Quote(NormalizedQuote),
+}
+
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum TradeSide {
