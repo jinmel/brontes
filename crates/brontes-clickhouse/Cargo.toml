@@ -20,4 +20,3 @@ futures.workspace = true
 async-trait.workspace = true
 thiserror.workspace = true
 url.workspace = true
-sbe.workspace = true
