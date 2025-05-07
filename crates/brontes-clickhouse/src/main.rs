@@ -6,7 +6,7 @@ use tower::{Service, ServiceExt};
 use tracing_subscriber::FmtSubscriber;
 
 use crate::{
-    clickhouse::{ClickHouseConfig, ClickHouseService, Status},
+    clickhouse::{ClickHouseConfig, ClickHouseService},
     models::NormalizedEvent,
     streams::{binance::Binance, Exchange, ExchangeStreamError},
 };

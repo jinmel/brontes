@@ -124,31 +124,25 @@ impl ClickHouseService {
     }
 }
 
-pub struct Response {
-    pub status: Status,
-}
-
-#[derive(Debug)]
-pub enum Status {
-    Ok,
-    Error(String),
-}
 
 impl tower::Service<Vec<NormalizedEvent>> for ClickHouseService {
-    type Error = eyre::Error;
-    type Future = Pin<Box<dyn Future<Output = Result<Response, Self::Error>> + Send>>;
-    type Response = Response;
+    type Response = ();
+    type Error    = eyre::Error;
+    type Future   = Pin<Box<dyn Future<Output = Result<(), Self::Error>> + Send>>;
 
     fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        // we’re always ready
         Poll::Ready(Ok(()))
     }
 
     fn call(&mut self, batch: Vec<NormalizedEvent>) -> Self::Future {
-        let client = self.client.clone();
+        let svc = self.clone();
         Box::pin(async move {
-            let service = ClickHouseService { client };
-            service.write_batch(batch).await?;
-            Ok(Response { status: Status::Ok })
+            // if write_batch fails, this returns Err(eyre::Error)
+            svc.write_batch(batch).await
+              .map_err(|e| eyre::eyre!("clickhouse write failed: {}", e))?;
+            // on success:
+            Ok(())
         })
     }
 }
