@@ -1,0 +1,23 @@
+[package]
+name = "brontes-clickhouse"
+version = "0.1.0"
+edition = "2021"
+authors = ["Eisen Labs"]
+description = "CEX integration for Brontes"
+
+[dependencies]
+clickhouse.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+dotenv.workspace = true
+eyre.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio-tungstenite.workspace = true
+tokio-stream.workspace = true
+futures.workspace = true
+async-trait.workspace = true
+thiserror.workspace = true
+url.workspace = true
+tower = { version = "0.5.2", features = ["util"] }

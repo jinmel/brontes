@@ -7,6 +7,3 @@ CREATE TABLE brontes.token_info
 ENGINE = MergeTree()
 PRIMARY KEY `address`
 ORDER BY `address`
-
-
-

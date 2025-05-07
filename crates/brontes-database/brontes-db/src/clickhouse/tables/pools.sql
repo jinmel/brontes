@@ -1,12 +1,9 @@
-CREATE TABLE ethereum.pools     
+CREATE TABLE ethereum.pools 
 (
-    `protocol` LowCardinality(String),
-    `protocol_subtype` LowCardinality(String),
-    `address` FixedString(42),
-    `tokens` Array(FixedString(42)),
-    `curve_lp_token` Nullable(FixedString(42)),
-    `init_block` UInt64
-) 
+    `address` String,                -- Pool contract address
+    `init_block` UInt64,            -- Block number where pool was initialized
+    `tokens` Array(String)          -- Array of token addresses in the pool
+)
 ENGINE = MergeTree()
-PRIMARY KEY (`protocol`, `address`)
-ORDER BY (`protocol`, `address`)
+PRIMARY KEY (address, init_block)
+ORDER BY (address, init_block);

@@ -62,6 +62,7 @@ use crate::{
 
 const SECONDS_TO_US: f64 = 1_000_000.0;
 const MAX_MARKOUT_TIME: f64 = 300.0;
+const BLOCK_TIME_BUFFER: f64 = 0.125 * SECONDS_TO_US; // For arbitrum block time
 
 #[derive(Clone)]
 pub struct Clickhouse {
@@ -756,13 +757,13 @@ impl ClickhouseHandle for Clickhouse {
                     .min_by_key(|b| b.timestamp)
                     .map(|b| b.timestamp)
                     .unwrap() as f64
-                    - (0.125 * SECONDS_TO_US);
+                    - (BLOCK_TIME_BUFFER * SECONDS_TO_US);
                 let end_time = block_times
                     .iter()
                     .max_by_key(|b| b.timestamp)
                     .map(|b| b.timestamp)
                     .unwrap() as f64
-                    + (0.125 * SECONDS_TO_US);
+                    + (BLOCK_TIME_BUFFER * SECONDS_TO_US);
 
                 debug!(
                     "Querying raw CEX trades for time range: start={}, end={}",
@@ -783,7 +784,7 @@ impl ClickhouseHandle for Clickhouse {
                 let mut query = RAW_CEX_TRADES.to_string();
                 let query_mod = block_times
                     .iter()
-                    .map(|b| b.convert_to_timestamp_query(6.0 * SECONDS_TO_US, 6.0 * SECONDS_TO_US))
+                    .map(|b| b.convert_to_timestamp_query(BLOCK_TIME_BUFFER, BLOCK_TIME_BUFFER))
                     .collect::<Vec<String>>()
                     .join(" OR ");
 
@@ -799,7 +800,7 @@ impl ClickhouseHandle for Clickhouse {
             CexRangeOrArbitrary::Timestamp { block_number, block_timestamp } => {
                 let mut query = RAW_CEX_TRADES.to_string();
                 let query_mod = BlockTimes { block_number, timestamp: block_timestamp * 1000000 }
-                    .convert_to_timestamp_query(6.0 * SECONDS_TO_US, 6.0 * SECONDS_TO_US);
+                    .convert_to_timestamp_query(BLOCK_TIME_BUFFER, BLOCK_TIME_BUFFER);
 
                 debug!("Querying raw CEX trades for block number {block_number}");
 
