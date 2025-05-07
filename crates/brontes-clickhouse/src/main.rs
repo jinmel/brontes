@@ -28,7 +28,7 @@ async fn main() -> eyre::Result<()> {
         .finish();
     tracing::subscriber::set_global_default(subscriber)?;
 
-    let (evt_tx, evt_rx) = mpsc::channel(1000);
+    let (evt_tx, evt_rx) = mpsc::channel::<Vec<Result<NormalizedEvent, ExchangeStreamError>>>(1000);
 
     let mut set = tokio::task::JoinSet::new();
 
@@ -110,7 +110,8 @@ async fn clickhouse_writer_task(
 
     let batch_stream = ReceiverStream::new(rx)
         .map(|batch| {
-            batch.into_iter()
+            batch
+                .into_iter()
                 .inspect(|result| {
                     if let Err(e) = result {
                         tracing::error!("{:?}", e);
