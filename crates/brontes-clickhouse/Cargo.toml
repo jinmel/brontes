@@ -20,3 +20,4 @@ futures.workspace = true
 async-trait.workspace = true
 thiserror.workspace = true
 url.workspace = true
+tower = { version = "0.5.2", features = ["util"] }

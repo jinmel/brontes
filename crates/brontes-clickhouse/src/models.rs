@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use clickhouse::Row;
 
 #[derive(Debug)]
 pub enum NormalizedEvent {
@@ -15,7 +16,7 @@ pub enum TradeSide {
     Sell,
 }
 
-#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
+#[derive(Debug, Serialize, Deserialize, Copy, Clone, Row)]
 #[serde(rename_all = "camelCase")]
 pub struct NormalizedTrade {
     pub exchange:  [u8; 16],    
@@ -26,7 +27,7 @@ pub struct NormalizedTrade {
     pub amount:    f64,
 }
 
-#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
+#[derive(Debug, Serialize, Deserialize, Copy, Clone, Row)]
 #[serde(rename_all = "camelCase")]
 pub struct NormalizedQuote {
     pub exchange:   [u8; 16],
