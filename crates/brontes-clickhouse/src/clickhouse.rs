@@ -1,21 +1,13 @@
 use std::{
     pin::Pin,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
     task::{Context, Poll},
     time::Duration,
 };
 
 use clickhouse::Client;
-use futures::{Future, Sink, Stream};
-use futures::SinkExt;
-use futures::StreamExt;
-use tokio::sync::mpsc;
-use tracing::info;
+use futures::Future;
 
-use crate::models::{NormalizedEvent, NormalizedQuote, NormalizedTrade};
+use crate::models::NormalizedEvent;
 
 #[derive(Debug)]
 pub struct ClickHouseConfig {
@@ -61,34 +53,6 @@ impl ClickHouseService {
             .with_password(config.password)
             .with_database(config.database);
         Self { client }
-    }
-
-    async fn write_trade(&self, trades: &Vec<NormalizedTrade>) -> eyre::Result<()> {
-        let mut inserter = self
-            .client
-            .inserter("normalized_trades".to_string())?
-            .with_max_entries(100);
-
-        for trade in trades {
-            inserter.write(trade).await?;
-            inserter.commit().await?;
-        }
-        inserter.end().await?;
-        Ok(())
-    }
-
-    async fn write_quote(&self, quotes: &Vec<NormalizedQuote>) -> eyre::Result<()> {
-        let mut inserter = self
-            .client
-            .inserter("normalized_quotes".to_string())?
-            .with_max_entries(100);
-
-        for quote in quotes {
-            inserter.write(quote).await?;
-            inserter.commit().await?;
-        }
-        inserter.end().await?;
-        Ok(())
     }
 
     async fn write_batch(&self, events: Vec<NormalizedEvent>) -> eyre::Result<()> {

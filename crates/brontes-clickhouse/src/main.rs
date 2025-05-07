@@ -1,8 +1,8 @@
 use dotenv::dotenv;
-use futures::{sink::SinkExt, stream::StreamExt};
+use futures::stream::StreamExt;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
-use tower::{Service, ServiceExt};
+use tower::ServiceExt;
 use tracing_subscriber::FmtSubscriber;
 
 use crate::{
@@ -15,7 +15,7 @@ mod clickhouse;
 mod models;
 mod streams;
 
-const BATCH_SIZE: usize = 50;
+const BATCH_SIZE: usize = 100;
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
