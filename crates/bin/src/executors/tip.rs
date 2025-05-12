@@ -56,7 +56,7 @@ impl<T: TracingProvider, DB: DBWriter + LibmdbxReader, CH: ClickhouseHandle, P: 
             parser,
             processing_futures: FuturesUnordered::new(),
             database,
-            poll_interval: interval(Duration::from_secs(3)),
+            poll_interval: interval(Duration::from_millis(150)),
             _p: PhantomData,
         }
     }

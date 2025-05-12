@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{hash::Hash, time::Duration};
 
 #[cfg(feature = "dyn-decode")]
 use alloy_json_abi::JsonAbi;
@@ -112,8 +112,13 @@ impl<T: TracingProvider, DB: LibmdbxReader + DBWriter> TraceParser<T, DB> {
         }
 
         tracing::info!(target: "brontes", "no block found in db, tracing block: {:?}", block_num);
-        let parity_trace = self.trace_block(block_num).await;
-        let receipts = self.get_receipts(block_num).await;
+
+        let (parity_trace, receipts, block_hash_result) = tokio::join!(
+            self.trace_block(block_num),
+            self.get_receipts(block_num),
+            self.tracer.block_hash_for_id(block_num)
+        );
+
         if parity_trace.0.is_none() && receipts.0.is_none() {
             #[cfg(feature = "dyn-decode")]
             self.metrics_tx
@@ -147,7 +152,7 @@ impl<T: TracingProvider, DB: LibmdbxReader + DBWriter> TraceParser<T, DB> {
             error!(%block_num, "failed to store traces for block");
         }
 
-        let block_hash = self.tracer.block_hash_for_id(block_num).await.ok()?;
+        let block_hash = block_hash_result.ok()?;
 
         if block_hash.is_none() {
             error!(%block_num, "failed to get block hash for block");

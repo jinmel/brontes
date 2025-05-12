@@ -58,11 +58,13 @@ alloy-sol-types = { workspace = true, features = ["json"] }
 
 alloy-provider.workspace = true
 alloy-transport-http.workspace = true
+alloy-transport-ws.workspace = true
 alloy-transport.workspace = true
 alloy-network.workspace = true
 alloy-json-rpc.workspace = true
 alloy-rpc-types.workspace = true
 alloy-rpc-client.workspace = true
+alloy-pubsub.workspace = true
 
 # tracing
 tracing.workspace = true

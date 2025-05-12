@@ -45,6 +45,7 @@ use self::shared::{
     state_collector::StateCollector,
 };
 use crate::cli::static_object;
+mod block_prefetch;
 
 pub const PROMETHEUS_ENDPOINT_IP: [u8; 4] = [0u8, 0u8, 0u8, 0u8];
 
