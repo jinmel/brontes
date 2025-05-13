@@ -13,6 +13,7 @@ use brontes_database::{
 use brontes_inspect::Inspector;
 use brontes_types::MultiBlockData;
 use futures::{pin_mut, stream::FuturesUnordered, Future, StreamExt};
+use futures::stream::FuturesOrdered;
 use reth_tasks::shutdown::GracefulShutdown;
 use tokio::time::{interval, Interval};
 use tracing::debug;
@@ -32,7 +33,7 @@ pub struct TipInspector<
     state_collector:    StateCollector<T, DB, CH>,
     database:           &'static DB,
     inspectors:         &'static [&'static dyn Inspector<Result = P::InspectType>],
-    processing_futures: FuturesUnordered<Pin<Box<dyn Future<Output = ()> + Send + 'static>>>,
+    processing_futures: FuturesOrdered<Pin<Box<dyn Future<Output = ()> + Send + 'static>>>,
     poll_interval:      Interval,
     _p:                 PhantomData<P>,
 }
@@ -54,7 +55,7 @@ impl<T: TracingProvider, DB: DBWriter + LibmdbxReader, CH: ClickhouseHandle, P: 
             inspectors,
             current_block,
             parser,
-            processing_futures: FuturesUnordered::new(),
+            processing_futures: FuturesOrdered::new(),
             database,
             poll_interval: interval(Duration::from_secs(3)),
             _p: PhantomData,
@@ -116,7 +117,8 @@ impl<T: TracingProvider, DB: DBWriter + LibmdbxReader, CH: ClickhouseHandle, P: 
 
     fn on_price_finish(&mut self, data: MultiBlockData) {
         debug!(target:"brontes::tip_inspector","Completed DEX pricing");
-        self.processing_futures.push(Box::pin(P::process_results(
+        tracing::info!("processing for block {} - {}", data.per_block_data.first().unwrap().block_number(), data.per_block_data.last().unwrap().block_number());
+        self.processing_futures.push_back(Box::pin(P::process_results(
             self.database,
             self.inspectors,
             data,
