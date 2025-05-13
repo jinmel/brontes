@@ -98,6 +98,7 @@ fn run_inspectors(
 ) -> (PossibleMevCollection, Vec<Bundle>) {
     let this_data = data.get_most_recent_block().clone();
     let BlockData { metadata, tree } = this_data;
+    tracing::info!("tree: {:?}", tree);
     let mut possible_mev_txes =
         DiscoveryInspector::new(DISCOVERY_PRIORITY_FEE_MULTIPLIER).find_possible_mev(tree.clone());
 
