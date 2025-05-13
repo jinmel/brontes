@@ -31,6 +31,7 @@ pub trait DBWriter: Send + Unpin + 'static {
         block_number: u64,
         quotes: Option<DexQuotes>,
     ) -> impl Future<Output = eyre::Result<()>> + Send {
+        tracing::info!("writing dex quotes for block {}", block_number);
         self.inner().write_dex_quotes(block_number, quotes)
     }
 
