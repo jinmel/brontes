@@ -149,7 +149,6 @@ impl<'db, T: TracingProvider, DB: LibmdbxReader + DBWriter> Classifier<'db, T, D
                     let mut pool_updates: Vec<DexPriceMsg> = Vec::new();
 
                     let root_trace = trace.trace.remove(0);
-                    tracing::info!("root_trace: {:?}", root_trace);
 
                     let address = root_trace.get_from_addr();
                     let trace_idx = root_trace.trace_idx;
