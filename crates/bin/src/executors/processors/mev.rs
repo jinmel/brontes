@@ -54,6 +54,10 @@ impl Processor for MevProcessor {
         let ComposerResults { block_details, mev_details, block_analysis, .. } =
             execute_on!(async_inspect, { run_block_inspection(inspectors, data, db) }).await;
 
+        tracing::info!("block_details: {:?}", block_details);
+        tracing::info!("mev_details: {:?}", mev_details);
+        tracing::info!("block_analysis: {:?}", block_analysis);
+
         insert_mev_results(db, block_details, mev_details, block_analysis).await;
     }
 }
