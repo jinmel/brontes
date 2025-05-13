@@ -167,6 +167,8 @@ impl<'db, T: TracingProvider, DB: LibmdbxReader + DBWriter> Classifier<'db, T, D
                         )
                         .await;
 
+                    tracing::info!("classification: {:?}", classification);
+
                     let node = Node::new(trace_idx, address, vec![]);
 
                     let total_msg_value_transfers = classification
