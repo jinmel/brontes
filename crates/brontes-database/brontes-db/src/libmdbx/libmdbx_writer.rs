@@ -133,6 +133,7 @@ impl Deref for StampedWriterMessage {
 macro_rules! init {
     ($($table:ident),*) => {
         paste::paste!(
+            #[derive(Debug)]
             pub enum InitTables {
                 $(
                     $table(Vec<[<$table Data>]>)
