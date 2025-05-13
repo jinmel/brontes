@@ -49,6 +49,7 @@ const CLEAR_AM: usize = 1000;
 //TODO: Mark instant here
 type InsetQueue = FastHashMap<Tables, Vec<(Vec<u8>, Vec<u8>)>>;
 
+#[derive(Debug)]
 pub enum WriterMessage {
     DexQuotes {
         block_number: u64,
