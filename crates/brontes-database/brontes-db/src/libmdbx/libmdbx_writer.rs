@@ -239,7 +239,6 @@ impl LibmdbxWriter {
 
     fn handle_msg(&mut self, stamped_msg: StampedWriterMessage) -> eyre::Result<()> {
         let StampedWriterMessage { recv_time, msg } = stamped_msg;
-        tracing::info!("handling msg {:?}", msg);
         let msg_type = match msg {
             WriterMessage::Pool { block, address, tokens, curve_lp_token, classifier_name } => {
                 self.insert_pool(block, address, &tokens, curve_lp_token, classifier_name)?;
@@ -250,6 +249,7 @@ impl LibmdbxWriter {
                 "traces"
             }
             WriterMessage::DexQuotes { block_number, quotes } => {
+                tracing::info!("writing dex quotes {:?} quotes: {:?}", block_number, quotes);
                 self.write_dex_quotes(block_number, quotes)?;
                 "dexquotes"
             }
