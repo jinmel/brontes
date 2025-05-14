@@ -106,6 +106,7 @@ fn run_inspectors(
         .flat_map(|inspector| {
             let window = inspector.block_window();
             // not sufficient size yet
+            tracing::info!("{} data.blocks: {:?} window: {:?}", inspector.get_id(), data.blocks, window);
             if data.blocks < window {
                 return vec![]
             };
