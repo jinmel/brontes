@@ -182,7 +182,7 @@ impl<DB: LibmdbxReader> AtomicArbInspector<'_, DB> {
             .filter(|_| has_dex_price)
             .unwrap_or_default();
 
-        let profit_float = profit.to_float();
+        let profit_float = profit.clone().to_float();
 
         tracing::trace!(?profit_float, "profit");
 
