@@ -121,12 +121,14 @@ impl<DB: LibmdbxReader> AtomicArbInspector<'_, DB> {
         });
 
         swaps.extend(self.utils.try_create_swaps(&transfers, ignore_addresses));
+        let swap_count = swaps.len();
+        if !swaps.is_empty() {
+            tracing::trace!(?swaps, ?info.tx_hash, ?swap_count, "swaps");
+        }
 
         let possible_arb_type = self.is_possible_arb(&swaps)?;
 
-        if !swaps.is_empty() {
-            tracing::trace!(?swaps, "swaps");
-        }
+        tracing::trace!(?possible_arb_type, "possible arbs");
 
         let account_deltas = transfers
             .into_iter()
@@ -134,6 +136,8 @@ impl<DB: LibmdbxReader> AtomicArbInspector<'_, DB> {
             .chain(eth_transfers.into_iter().map(Action::from))
             .chain(info.get_total_eth_value().iter().cloned().map(Action::from))
             .account_for_actions();
+
+        tracing::trace!(?account_deltas, "account_deltas");
 
         let mut has_dex_price = self.utils.valid_pricing(
             metadata.clone(),
@@ -150,6 +154,8 @@ impl<DB: LibmdbxReader> AtomicArbInspector<'_, DB> {
             MAX_PRICE_DIFF,
             MevType::AtomicArb,
         );
+
+        tracing::trace!(?has_dex_price, "has_dex_price");
 
         let gas_used = info.gas_details.gas_paid();
         let gas_used_usd = metadata.get_gas_price_usd(gas_used, self.utils.quote);
@@ -168,10 +174,14 @@ impl<DB: LibmdbxReader> AtomicArbInspector<'_, DB> {
             Some(Rational::ZERO)
         };
 
+        tracing::trace!(?rev, ?gas_used_usd, "rev and gas_used_usd");
+
         let mut profit = rev
             .map(|rev| rev - &gas_used_usd)
             .filter(|_| has_dex_price)
             .unwrap_or_default();
+
+        tracing::trace!(?profit, "profit");
 
         if profit >= MAX_PROFIT || profit <= MIN_PROFIT {
             has_dex_price = false;
@@ -179,6 +189,8 @@ impl<DB: LibmdbxReader> AtomicArbInspector<'_, DB> {
         }
 
         let is_profitable = profit > Rational::ZERO;
+
+        tracing::trace!(?is_profitable, "is_profitable");
 
         let requirement_multiplier = if has_dex_price { 1 } else { 2 };
 
