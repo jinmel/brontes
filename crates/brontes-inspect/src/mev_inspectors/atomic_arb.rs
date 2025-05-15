@@ -77,7 +77,12 @@ impl<DB: LibmdbxReader> Inspector for AtomicArbInspector<'_, DB> {
                     let info = info??;
                     let actions = action?;
 
-                    tracing::info!("{} info: {:?} actions: {:?}", self.get_id(), info, actions);            
+                    let _ = actions.iter().map(|a|{
+                        if let Action::Swap(swap) = a {
+                            tracing::info!("{} swap: {:?}", self.get_id(), swap);
+                        }
+                    }).collect::<Vec<_>>();
+
                     self.process_swaps(
                         data.per_block_data
                             .iter()
