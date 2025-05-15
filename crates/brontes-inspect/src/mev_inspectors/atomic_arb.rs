@@ -77,12 +77,6 @@ impl<DB: LibmdbxReader> Inspector for AtomicArbInspector<'_, DB> {
                     let info = info??;
                     let actions = action?;
 
-                    let _ = actions.iter().map(|a|{
-                        if let Action::Swap(swap) = a {
-                            tracing::info!("{} swap: {:?}", self.get_id(), swap);
-                        }
-                    }).collect::<Vec<_>>();
-
                     self.process_swaps(
                         data.per_block_data
                             .iter()
@@ -118,6 +112,8 @@ impl<DB: LibmdbxReader> AtomicArbInspector<'_, DB> {
         data: (Vec<NormalizedSwap>, Vec<NormalizedTransfer>, Vec<NormalizedEthTransfer>),
     ) -> Option<Bundle> {
         tracing::trace!(?info, "trying atomic");
+        tracing::trace!(?data, "data");
+
         let (mut swaps, transfers, eth_transfers) = data;
         let mev_addresses: FastHashSet<Address> = info.collect_address_set_for_accounting();
 
@@ -129,7 +125,11 @@ impl<DB: LibmdbxReader> AtomicArbInspector<'_, DB> {
 
         swaps.extend(self.utils.try_create_swaps(&transfers, ignore_addresses));
 
+        tracing::trace!(?swaps, "swaps");
+
         let possible_arb_type = self.is_possible_arb(&swaps)?;
+
+        tracing::trace!(?possible_arb_type, "possible_arb_type");
 
         let account_deltas = transfers
             .into_iter()
