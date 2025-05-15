@@ -98,7 +98,7 @@ pub trait DBWriter: Send + Unpin + 'static {
         self.inner().write_address_meta(address, metadata)
     }
 
-    fn insert_pool(
+    fn ㅑinsert_pool(
         &self,
         block: u64,
         address: Address,
