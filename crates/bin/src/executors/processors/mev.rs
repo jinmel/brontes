@@ -55,7 +55,11 @@ impl Processor for MevProcessor {
             execute_on!(async_inspect, { run_block_inspection(inspectors, data, db) }).await;
 
         if !mev_details.is_empty() {
-            tracing::debug!("mev_details: {:?}", mev_details);
+            for mev in mev_details.iter() {
+                tracing::debug!(?mev.header.mev_type, "mev type");
+                tracing::debug!(?mev.header, "mev header");
+                tracing::debug!(?mev.data, "mev data");
+            }
         }
 
         insert_mev_results(db, block_details, mev_details, block_analysis).await;
