@@ -182,10 +182,6 @@ impl<DB: LibmdbxReader> AtomicArbInspector<'_, DB> {
             .filter(|_| has_dex_price)
             .unwrap_or_default();
 
-        let profit_float = profit.clone().to_float();
-
-
-
         if profit >= MAX_PROFIT || profit <= MIN_PROFIT {
             has_dex_price = false;
             profit = Rational::ZERO;
@@ -215,6 +211,7 @@ impl<DB: LibmdbxReader> AtomicArbInspector<'_, DB> {
                 .then_some(profit),
         }?;
 
+        let profit_float = profit.clone().to_float();
         tracing::trace!(?profit_float, "profit");
 
         // given we have a atomic arb now, we will go and try to find the trigger
