@@ -78,11 +78,17 @@ impl<V: NormalizedAction> BlockTree<V> {
             return vec![]
         };
 
+        tracing::trace!(?contract, "contract");
+
         let Ok(address_meta) = database.try_fetch_address_metadatas(contract_info_addr) else {
             return vec![]
         };
 
+        tracing::trace!(?address_meta, "address_meta");
+
         let Ok(eoa) = database.try_fetch_searcher_eoa_infos(eoa_info_addr) else { return vec![] };
+
+        tracing::trace!(?eoa, "eoa");
 
         roots
             .into_iter()
