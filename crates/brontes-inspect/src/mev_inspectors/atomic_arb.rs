@@ -159,6 +159,7 @@ impl<DB: LibmdbxReader> AtomicArbInspector<'_, DB> {
 
         let gas_used = info.gas_details.gas_paid();
         let gas_used_usd = metadata.get_gas_price_usd(gas_used, self.utils.quote);
+        let gas_used_usd_float = gas_used_usd.clone().to_float();
 
         let rev = if let Some(rev) = self.utils.get_deltas_usd(
             info.tx_index,
@@ -174,7 +175,7 @@ impl<DB: LibmdbxReader> AtomicArbInspector<'_, DB> {
             Some(Rational::ZERO)
         };
 
-        tracing::trace!(?rev, ?gas_used_usd, "rev and gas_used_usd");
+        tracing::trace!(?rev, ?gas_used_usd_float, "rev and gas_used_usd");
 
         let mut profit = rev
             .map(|rev| rev - &gas_used_usd)
