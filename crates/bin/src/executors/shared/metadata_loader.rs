@@ -12,6 +12,7 @@ use std::{
 use alloy_primitives::Address;
 use brontes_database::clickhouse::ClickhouseHandle;
 use brontes_types::{
+    constants::BLOCK_TIME_MILLIS,
     db::{
         cex::trades::{window_loader::CexWindow, CexTradeMap},
         dex::DexQuotes,
@@ -106,8 +107,10 @@ impl<T: TracingProvider, CH: ClickhouseHandle> MetadataLoader<T, CH> {
         let generate_dex_pricing = self.generate_dex_pricing(block, libmdbx);
 
         if !generate_dex_pricing && self.clickhouse.is_none() {
+            tracing::trace!("loading metadata with dex pricing");
             self.load_metadata_with_dex_prices(tree, libmdbx, block, quote_asset);
         } else if let Some(clickhouse) = self.clickhouse {
+            tracing::trace!("loading metadata from clickhouse");
             self.load_metadata_from_clickhouse(
                 tree,
                 libmdbx,
@@ -117,8 +120,10 @@ impl<T: TracingProvider, CH: ClickhouseHandle> MetadataLoader<T, CH> {
                 quote_asset,
             );
         } else if self.force_no_dex_pricing {
+            tracing::trace!("loading metadata force no dex pricing");
             self.load_metadata_force_no_dex_pricing(tree, libmdbx, block, quote_asset);
         } else {
+            tracing::trace!("loading metadata no dex pricing");
             self.load_metadata_no_dex_pricing(tree, libmdbx, block, quote_asset);
         }
     }
@@ -132,7 +137,7 @@ impl<T: TracingProvider, CH: ClickhouseHandle> MetadataLoader<T, CH> {
             let window = self.cex_window_data.get_window_lookahead();
             // given every download is -6 + 6 around the block
             // we calculate the offset from the current block that we need
-            let offsets = (window / 12) as u64;
+            let offsets = (window * 1000 / BLOCK_TIME_MILLIS) as u64;
             let mut trades = Vec::new();
             for block in block - offsets..=block + offsets {
                 if let Ok(res) = libmdbx.get_cex_trades(block) {
@@ -256,7 +261,7 @@ impl<T: TracingProvider, CH: ClickhouseHandle> MetadataLoader<T, CH> {
         let window = self.cex_window_data.get_window_lookahead();
         // given every download is -6 + 6 around the block
         // we calculate the offset from the current block that we need
-        let offsets = (window / 12) as u64;
+        let offsets = (window * 1000 / BLOCK_TIME_MILLIS) as u64;
         let future = Box::pin(async move {
             let builder_info = libmdbx
                 .try_fetch_builder_info(tree.header.beneficiary)

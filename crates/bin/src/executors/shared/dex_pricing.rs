@@ -54,6 +54,7 @@ impl<T: TracingProvider> WaitingForPricerFuture<T> {
 
     async fn pricing_thread(mut pricer: BrontesBatchPricer<T>, tx: PricingSender<T>) {
         let block = pricer.current_block_processing();
+        tracing::trace!("current_block_processing: {:?}", block);
         let mut res = pricer
             .next()
             .instrument(span!(Level::ERROR, "Brontes Dex Pricing",
@@ -62,7 +63,10 @@ impl<T: TracingProvider> WaitingForPricerFuture<T> {
 
         // we will keep trying to send util it is resolved or the channel is dropped
         while let Err(e) = tx.try_send((pricer, res)) {
-            let TrySendError::Full((f_pricer, f_res)) = e else { return };
+            let TrySendError::Full((f_pricer, f_res)) = e else { 
+                tracing::error!("pricing thread failed to send: {:?}", e);
+                return;
+            };
 
             pricer = f_pricer;
             res = f_res;

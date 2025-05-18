@@ -111,7 +111,6 @@ impl<DB: LibmdbxReader> AtomicArbInspector<'_, DB> {
         metadata: Arc<Metadata>,
         data: (Vec<NormalizedSwap>, Vec<NormalizedTransfer>, Vec<NormalizedEthTransfer>),
     ) -> Option<Bundle> {
-        tracing::trace!(?info, "trying atomic");
         let (mut swaps, transfers, eth_transfers) = data;
         let mev_addresses: FastHashSet<Address> = info.collect_address_set_for_accounting();
 
@@ -122,8 +121,14 @@ impl<DB: LibmdbxReader> AtomicArbInspector<'_, DB> {
         });
 
         swaps.extend(self.utils.try_create_swaps(&transfers, ignore_addresses));
+        let swap_count = swaps.len();
+        if !swaps.is_empty() {
+            tracing::trace!(?swaps, ?info.tx_hash, ?swap_count, "swaps");
+        }
 
         let possible_arb_type = self.is_possible_arb(&swaps)?;
+
+        tracing::trace!(?possible_arb_type, "possible arbs");
 
         let account_deltas = transfers
             .into_iter()
@@ -131,6 +136,8 @@ impl<DB: LibmdbxReader> AtomicArbInspector<'_, DB> {
             .chain(eth_transfers.into_iter().map(Action::from))
             .chain(info.get_total_eth_value().iter().cloned().map(Action::from))
             .account_for_actions();
+
+        tracing::trace!(?account_deltas, "account_deltas");
 
         let mut has_dex_price = self.utils.valid_pricing(
             metadata.clone(),
@@ -148,8 +155,11 @@ impl<DB: LibmdbxReader> AtomicArbInspector<'_, DB> {
             MevType::AtomicArb,
         );
 
+        tracing::trace!(?has_dex_price, "has_dex_price");
+
         let gas_used = info.gas_details.gas_paid();
         let gas_used_usd = metadata.get_gas_price_usd(gas_used, self.utils.quote);
+        let gas_used_usd_float = gas_used_usd.clone().to_float();
 
         let rev = if let Some(rev) = self.utils.get_deltas_usd(
             info.tx_index,
@@ -165,6 +175,8 @@ impl<DB: LibmdbxReader> AtomicArbInspector<'_, DB> {
             Some(Rational::ZERO)
         };
 
+        tracing::trace!(?rev, ?gas_used_usd_float, "rev and gas_used_usd");
+
         let mut profit = rev
             .map(|rev| rev - &gas_used_usd)
             .filter(|_| has_dex_price)
@@ -176,6 +188,8 @@ impl<DB: LibmdbxReader> AtomicArbInspector<'_, DB> {
         }
 
         let is_profitable = profit > Rational::ZERO;
+
+        tracing::trace!(?is_profitable, "is_profitable");
 
         let requirement_multiplier = if has_dex_price { 1 } else { 2 };
 
@@ -196,6 +210,9 @@ impl<DB: LibmdbxReader> AtomicArbInspector<'_, DB> {
                 || self.is_long_tail(&info, requirement_multiplier) & !has_dex_price)
                 .then_some(profit),
         }?;
+
+        let profit_float = profit.clone().to_float();
+        tracing::trace!(?profit_float, "profit");
 
         // given we have a atomic arb now, we will go and try to find the trigger
         // transaction that lead to this arb.

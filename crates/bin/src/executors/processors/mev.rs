@@ -36,6 +36,7 @@ impl Processor for MevProcessor {
         inspectors: &'static [&dyn Inspector<Result = Self::InspectType>],
         data: MultiBlockData,
     ) {
+        tracing::trace!("processing mev results");
         let last = data.get_most_recent_block().clone();
         let BlockData { metadata, tree } = last;
         if let Err(e) = db
@@ -53,6 +54,16 @@ impl Processor for MevProcessor {
 
         let ComposerResults { block_details, mev_details, block_analysis, .. } =
             execute_on!(async_inspect, { run_block_inspection(inspectors, data, db) }).await;
+
+        if !mev_details.is_empty() {
+            for mev in mev_details.iter() {
+                tracing::debug!(?mev.header.mev_type, "mev type");
+                tracing::debug!(?mev.header, "mev header");
+                tracing::debug!(?mev.data, "mev data");
+            }
+        } else {
+            tracing::debug!("no mev details");
+        }
 
         insert_mev_results(db, block_details, mev_details, block_analysis).await;
     }

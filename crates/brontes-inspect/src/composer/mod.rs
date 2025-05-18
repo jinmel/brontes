@@ -78,6 +78,8 @@ pub fn run_block_inspection<DB: LibmdbxReader>(
 
     let (possible_mev_txes, classified_mev) = run_inspectors(orchestra, data);
 
+    tracing::info!("possible_mev_txes: {:?}", possible_mev_txes);
+
     let possible_arbs = possible_mev_txes.clone();
 
     let quote_token = orchestra[0].get_quote_token();
