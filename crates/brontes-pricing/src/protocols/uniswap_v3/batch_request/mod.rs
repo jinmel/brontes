@@ -67,11 +67,19 @@ const TICK_SPACING_RANGE: std::ops::Range<usize> = 6146..6146 + 64;
 // loading for the pools TODO: We don't need ticks or fees, we should already
 // have token 0 & token 1 TODO: We also don't need bytecode or tick spacing
 pub fn extract_uni_v3_immutables(bytecode: Bytes) -> eyre::Result<(Address, Address, u32, i32)> {
-    // Slices
-    let token0_slice = &bytecode[TOKEN0_RANGE];
-    let token1_slice = &bytecode[TOKEN1_RANGE];
-    let fee_slice = &bytecode[FEE_RANGE];
-    let tick_spacing_slice = &bytecode[TICK_SPACING_RANGE];
+    // Safely get slices using get() method
+    let token0_slice = bytecode.get(TOKEN0_RANGE).ok_or_else(|| {
+        eyre::eyre!("Bytecode too short for token0 range: expected at least {} bytes", TOKEN0_RANGE.end)
+    })?;
+    let token1_slice = bytecode.get(TOKEN1_RANGE).ok_or_else(|| {
+        eyre::eyre!("Bytecode too short for token1 range: expected at least {} bytes", TOKEN1_RANGE.end)
+    })?;
+    let fee_slice = bytecode.get(FEE_RANGE).ok_or_else(|| {
+        eyre::eyre!("Bytecode too short for fee range: expected at least {} bytes", FEE_RANGE.end)
+    })?;
+    let tick_spacing_slice = bytecode.get(TICK_SPACING_RANGE).ok_or_else(|| {
+        eyre::eyre!("Bytecode too short for tick spacing range: expected at least {} bytes", TICK_SPACING_RANGE.end)
+    })?;
 
     // To UTF-8 String
     let token0 = from_utf8(token0_slice)?;
