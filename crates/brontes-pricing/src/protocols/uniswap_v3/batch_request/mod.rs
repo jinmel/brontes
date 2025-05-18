@@ -104,6 +104,7 @@ pub async fn get_v3_pool_data_batch_request<M: TracingProvider>(
     block_number: Option<u64>,
     middleware: Arc<M>,
 ) -> Result<(), AmmError> {
+    tracing::trace!("getting v3 pool data batch request for pool: {:?}", pool.address);
     // Pool Storage Slots
     let slot0_slot: FixedBytes<32> = FixedBytes::new([0u8; 32]);
     let liquidity_slot: FixedBytes<32> = FixedBytes::with_last_byte(4);

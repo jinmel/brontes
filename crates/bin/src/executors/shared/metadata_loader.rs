@@ -107,8 +107,10 @@ impl<T: TracingProvider, CH: ClickhouseHandle> MetadataLoader<T, CH> {
         let generate_dex_pricing = self.generate_dex_pricing(block, libmdbx);
 
         if !generate_dex_pricing && self.clickhouse.is_none() {
+            tracing::trace!("loading metadata with dex pricing");
             self.load_metadata_with_dex_prices(tree, libmdbx, block, quote_asset);
         } else if let Some(clickhouse) = self.clickhouse {
+            tracing::trace!("loading metadata from clickhouse");
             self.load_metadata_from_clickhouse(
                 tree,
                 libmdbx,
@@ -118,8 +120,10 @@ impl<T: TracingProvider, CH: ClickhouseHandle> MetadataLoader<T, CH> {
                 quote_asset,
             );
         } else if self.force_no_dex_pricing {
+            tracing::trace!("loading metadata force no dex pricing");
             self.load_metadata_force_no_dex_pricing(tree, libmdbx, block, quote_asset);
         } else {
+            tracing::trace!("loading metadata no dex pricing");
             self.load_metadata_no_dex_pricing(tree, libmdbx, block, quote_asset);
         }
     }
