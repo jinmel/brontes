@@ -72,9 +72,6 @@ impl<T: TracingProvider, CH: ClickhouseHandle> MetadataLoader<T, CH> {
     }
 
     pub fn should_process_next_block(&self) -> bool {
-        tracing::trace!("needs_more_data: {:?}", self.needs_more_data.load(Ordering::SeqCst));
-        tracing::trace!("pending_trees: {:?}", self.dex_pricer_stream.pending_trees());
-        tracing::trace!("result_buf: {:?}", self.result_buf.len());
         self.needs_more_data.load(Ordering::SeqCst)
             && self.dex_pricer_stream.pending_trees() < MAX_PENDING_TREES
             && self.result_buf.len() < MAX_PENDING_TREES

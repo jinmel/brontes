@@ -60,6 +60,8 @@ impl Processor for MevProcessor {
                 tracing::debug!(?mev.header, "mev header");
                 tracing::debug!(?mev.data, "mev data");
             }
+        } else {
+            tracing::debug!("no mev details");
         }
 
         insert_mev_results(db, block_details, mev_details, block_analysis).await;
