@@ -71,6 +71,8 @@ impl<T: TracingProvider> WaitingForPricerFuture<T> {
     }
 
     pub fn pending_trees(&self) -> usize {
+        tracing::trace!("pending_trees: {:?}", self.pending_trees.len());
+        tracing::trace!("tmp_trees: {:?}", self.tmp_trees.len());
         self.tmp_trees.len() + self.pending_trees.len()
     }
 
