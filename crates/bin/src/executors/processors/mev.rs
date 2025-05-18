@@ -36,6 +36,7 @@ impl Processor for MevProcessor {
         inspectors: &'static [&dyn Inspector<Result = Self::InspectType>],
         data: MultiBlockData,
     ) {
+        tracing::trace!("processing mev results");
         let last = data.get_most_recent_block().clone();
         let BlockData { metadata, tree } = last;
         if let Err(e) = db
