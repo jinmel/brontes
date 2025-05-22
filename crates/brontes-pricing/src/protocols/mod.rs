@@ -104,7 +104,7 @@ impl LoadState for Protocol {
                         UniswapV3Pool::new_from_address(address, block_number, provider)
                             .await
                             .map_err(|e| {
-                                debug!(?pool_pair, protocol=%self, %block_number, pool_address=?address, err=%e, "lazy load failed");
+                                debug!(?address, ?pool_pair, protocol=%self, %block_number, pool_address=?address, err=%e, "lazy load failed");
                                 (address, Protocol::UniswapV3, block_number, pool_pair, fp, e)
                             })?,
                         LoadResult::PoolInitOnBlock,
