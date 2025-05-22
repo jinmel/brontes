@@ -198,7 +198,7 @@ impl AllPairGraph {
         first_hop: Option<Pair>,
         ignore: &FastHashSet<Pair>,
         block: u64,
-        connectivity_wight: usize,
+        connectivity_weight: usize,
         connections: Option<usize>,
         timeout: Duration,
         is_extension: bool,
@@ -238,7 +238,7 @@ impl AllPairGraph {
                 let cur_node: NodeIndex<usize> = (*cur_node).into();
                 let edges = self.graph.edges(cur_node).collect_vec();
                 let edge_len = edges.len() as isize;
-                let weight = max(1, connectivity_wight as isize - edge_len);
+                let weight = max(1, connectivity_weight as isize - edge_len);
 
                 edges
                     .into_iter()

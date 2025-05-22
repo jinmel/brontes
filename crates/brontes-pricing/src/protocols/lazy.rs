@@ -94,7 +94,12 @@ impl<T: TracingProvider> LazyExchangeLoader<T> {
     }
 
     pub fn can_progress(&self, block: &u64) -> bool {
-        self.req_per_block.get(block).copied().unwrap_or(0) == 0
+        if let Some(count) = self.req_per_block.get(block) {
+            *count == 0
+        } else {
+            tracing::trace!("can_progress: waiting for block: {}", block);
+            false
+        }
     }
 
     pub fn is_loading_block(&self, k: &Address) -> Option<FastHashSet<u64>> {
