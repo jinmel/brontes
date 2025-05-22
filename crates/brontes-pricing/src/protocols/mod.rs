@@ -76,7 +76,7 @@ impl LoadState for Protocol {
                         UniswapV2Pool::new_load_on_block(address, provider, block_number)
                             .await
                             .map_err(|e| {
-                                debug!(?pool_pair,protocol=%self, %block_number, pool_address=?address, err=%e, "lazy load failed");
+                                debug!(?address, ?pool_pair,protocol=%self, %block_number, pool_address=?address, err=%e, "lazy load failed");
                                 (address, Protocol::UniswapV2, block_number, pool_pair, fp, e)
                             })?,
                         LoadResult::PoolInitOnBlock,
