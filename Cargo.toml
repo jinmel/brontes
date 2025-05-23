@@ -116,6 +116,7 @@ tracing-subscriber = { version = "0.3.17", default-features = false, features = 
   "fmt",
 ] }
 colored = "2.0"
+console-subscriber = { version = "0.4.1" }
 
 # Metrics
 metrics-exporter-prometheus = "=0.12.1"
