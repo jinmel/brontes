@@ -634,6 +634,7 @@ impl<T: TracingProvider> BrontesBatchPricer<T> {
             .flatten()
             .collect_vec();
 
+        tracing::debug!("on_pool_resolve requery");
         self.requery_bad_state_par(failed_queries, false);
     }
 
@@ -707,6 +708,7 @@ impl<T: TracingProvider> BrontesBatchPricer<T> {
             })
             .collect_vec();
 
+        tracing::debug!("try_verify_subgraph requery");
         self.requery_bad_state_par(requery, true);
     }
 
@@ -1197,16 +1199,21 @@ impl<T: TracingProvider> BrontesBatchPricer<T> {
         }
 
         if !buf.is_empty() {
+            tracing::debug!("on_pool_resolve");
             self.on_pool_resolve(buf);
         }
 
+        tracing::debug!("lazy_loader.pairs_to_verify");
         let pairs = self.lazy_loader.pairs_to_verify();
+        tracing::debug!("pairs_to_verify: {:?}", pairs);
         if !pairs.is_empty() {
             execute_on!(target = pricing, self.try_verify_subgraph(pairs));
         }
 
+        tracing::debug!("try_flush_out_pending_verification");
         self.try_flush_out_pending_verification();
 
+        tracing::debug!("try_resolve_block");
         // // check if we can progress to the next block.
         self.try_resolve_block()
             .map(|prices| Poll::Ready(Some(prices)))
