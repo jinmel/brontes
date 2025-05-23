@@ -69,6 +69,7 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 reth-tracing-ext.workspace = true
 colored.workspace = true
+console-subscriber.workspace = true
 
 # misc
 eyre.workspace = true
