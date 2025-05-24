@@ -139,10 +139,11 @@ impl<T: TracingProvider, DB: DBWriter + LibmdbxReader, CH: ClickhouseHandle, P: 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         // given we pull the next block sync, we use this to trigger looking
         // for the next block.
-        tracing::debug!(target:"tip_inspector::poll", "polling tip inspector");
+        tracing::info!(target:"tip_inspector::poll", "polling tip inspector");
         while self.poll_interval.poll_tick(cx).is_ready() {}
 
         if self.start_block_inspector() && self.state_collector.should_process_next_block() {
+            tracing::info!(target:"tip_inspector::poll", "starting new tip block");
             let block = self.current_block;
             let metrics = self.range_metrics.clone();
             tracing::info!(%block,"starting new tip block");
@@ -152,7 +153,8 @@ impl<T: TracingProvider, DB: DBWriter + LibmdbxReader, CH: ClickhouseHandle, P: 
                 metrics.update_latest_block(block);
             });
         } else {
-            tracing::info!(?self.current_block, "Waiting for next block");
+            let current_block = self.current_block;
+            tracing::info!(target:"tip_inspector::poll", ?current_block, "Waiting for next block");
         }
 
         if let Poll::Ready(item) = self.state_collector.poll_next_unpin(cx) {
