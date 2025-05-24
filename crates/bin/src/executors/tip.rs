@@ -113,7 +113,11 @@ impl<T: TracingProvider, DB: DBWriter + LibmdbxReader, CH: ClickhouseHandle, P: 
         tracing::debug!(?cur_block, %self.back_from_tip, %self.current_block, "got latest block number");
 
         match cur_block {
-            Ok(chain_tip) => chain_tip - self.back_from_tip > self.current_block,
+            Ok(chain_tip) => {
+                let res = chain_tip - self.back_from_tip > self.current_block;
+                tracing::debug!(?res, ?chain_tip, ?self.back_from_tip, ?self.current_block, "chain tip is greater than current block");
+                res
+            }
             Err(e) => {
                 tracing::error!("Error: {:?}", e);
                 false
