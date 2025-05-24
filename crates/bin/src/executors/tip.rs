@@ -146,6 +146,8 @@ impl<T: TracingProvider, DB: DBWriter + LibmdbxReader, CH: ClickhouseHandle, P: 
             self.range_metrics.as_ref().inspect(|metrics| {
                 metrics.update_latest_block(block);
             });
+        } else {
+            tracing::info!(?self.current_block, "Waiting for next block");
         }
 
         if let Poll::Ready(item) = self.state_collector.poll_next_unpin(cx) {

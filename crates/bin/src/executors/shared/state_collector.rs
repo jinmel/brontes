@@ -168,6 +168,8 @@ impl<T: TracingProvider, DB: LibmdbxReader + DBWriter, CH: ClickhouseHandle> Str
             && self.collection_future.is_none()
         {
             return Poll::Ready(None)
+        } else {
+            tracing::debug!("Waiting for next block");
         }
 
         self.metadata_fetcher
