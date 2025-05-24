@@ -990,7 +990,7 @@ impl<T: TracingProvider> BrontesBatchPricer<T> {
     /// this lets us sync between the two tasks and only let a certain amount
     /// of pre-processing occur.
     fn process_future_blocks(&self) {
-        if self.completed_block + 6 > self.current_block {
+        if self.completed_block + 300 > self.current_block {
             self.metrics
                 .as_ref()
                 .inspect(|m| m.needs_more_data(self.range_id, true));
