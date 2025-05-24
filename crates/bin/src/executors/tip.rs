@@ -99,6 +99,7 @@ impl<T: TracingProvider, DB: DBWriter + LibmdbxReader, CH: ClickhouseHandle, P: 
 
     #[cfg(not(feature = "local-reth"))]
     fn start_block_inspector(&mut self) -> bool {
+        tracing::debug!(target:"tip_inspector::start_block_inspector", "start block inspector");
         if self.state_collector.is_collecting_state() {
             tracing::debug!(target:"tip_inspector::start_block_inspector", "is collecting state");
             return false
