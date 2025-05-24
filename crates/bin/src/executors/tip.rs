@@ -139,6 +139,7 @@ impl<T: TracingProvider, DB: DBWriter + LibmdbxReader, CH: ClickhouseHandle, P: 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         // given we pull the next block sync, we use this to trigger looking
         // for the next block.
+        tracing::debug!(target:"tip_inspector::poll", "polling tip inspector");
         while self.poll_interval.poll_tick(cx).is_ready() {}
 
         if self.start_block_inspector() && self.state_collector.should_process_next_block() {
