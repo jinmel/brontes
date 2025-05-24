@@ -326,6 +326,28 @@ impl SubgraphVerifier {
             .collect_vec()
     }
 
+    #[instrument(target = "rayon", name = "rayon_job", skip_all)]
+    fn process_subgraph_verification(
+        state_tracker: &StateTracker,
+        pair: PairWithFirstPoolHop,
+        block: u64,
+        rundown: bool,
+        mut subgraph: Subgraph,
+        price: Rational,
+        quote: Address,
+    ) -> (PairWithFirstPoolHop, u64, VerificationOutcome, Subgraph) {
+        let edge_state = state_tracker.state_for_verification(block);
+        let result = if rundown {
+            subgraph
+                .subgraph
+                .rundown_subgraph_check(quote, price, &edge_state)
+        } else {
+            subgraph.subgraph.verify_subgraph(quote, price, edge_state)
+        };
+
+        (pair, block, result, subgraph)
+    }
+
     fn verify_par(
         &self,
         pairs: Vec<(PairWithFirstPoolHop, u64, bool, Subgraph, Rational, Address)>,
@@ -333,17 +355,8 @@ impl SubgraphVerifier {
     ) -> Vec<(PairWithFirstPoolHop, u64, VerificationOutcome, Subgraph)> {
         pairs
             .into_par_iter()
-            .map(|(pair, block, rundown, mut subgraph, price, quote)| {
-                let edge_state = state_tracker.state_for_verification(block);
-                let result = if rundown {
-                    subgraph
-                        .subgraph
-                        .rundown_subgraph_check(quote, price, &edge_state)
-                } else {
-                    subgraph.subgraph.verify_subgraph(quote, price, edge_state)
-                };
-
-                (pair, block, result, subgraph)
+            .map(|(pair, block, rundown, subgraph, price, quote)| {
+                Self::process_subgraph_verification(state_tracker, pair, block, rundown, subgraph, price, quote)
             })
             .collect::<Vec<_>>()
     }
