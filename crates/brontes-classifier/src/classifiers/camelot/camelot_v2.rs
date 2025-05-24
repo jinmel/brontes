@@ -13,7 +13,7 @@ action_impl!(
     Swap,
     [..Swap],
     call_data: true,
-    logs: false,
+    logs: true,
     |
     info: CallInfo,
     call_data: swap_0Call,
