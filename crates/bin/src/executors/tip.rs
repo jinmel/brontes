@@ -100,13 +100,16 @@ impl<T: TracingProvider, DB: DBWriter + LibmdbxReader, CH: ClickhouseHandle, P: 
     #[cfg(not(feature = "local-reth"))]
     fn start_block_inspector(&mut self) -> bool {
         if self.state_collector.is_collecting_state() {
+            tracing::debug!(target:"tip_inspector::start_block_inspector", "is collecting state");
             return false
         }
 
+        tracing::debug!(target:"tip_inspector::start_block_inspector", "start getting latest block number");
         let cur_block = tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current()
                 .block_on(async { self.parser.get_latest_block_number().await })
         });
+        tracing::debug!(target:"tip_inspector::start_block_inspector", ?cur_block, "got latest block number");
 
         match cur_block {
             Ok(chain_tip) => chain_tip - self.back_from_tip > self.current_block,
