@@ -109,6 +109,8 @@ pub struct BrontesBatchPricer<T: TracingProvider> {
     skip_pricing:    VecDeque<u64>,
     /// metrics
     metrics:         Option<DexPricingMetrics>,
+    /// max pending trees before requesting for more data
+    max_pending:     usize,
 }
 
 impl<T: TracingProvider> BrontesBatchPricer<T> {
@@ -124,6 +126,7 @@ impl<T: TracingProvider> BrontesBatchPricer<T> {
         needs_more_data: Arc<AtomicBool>,
         metrics: Option<DexPricingMetrics>,
         executor: BrontesTaskExecutor,
+        max_pending: usize,
     ) -> Self {
         Self {
             range_id,
@@ -142,6 +145,7 @@ impl<T: TracingProvider> BrontesBatchPricer<T> {
             skip_pricing: VecDeque::new(),
             needs_more_data,
             metrics,
+            max_pending,
         }
     }
 
@@ -634,7 +638,6 @@ impl<T: TracingProvider> BrontesBatchPricer<T> {
             .flatten()
             .collect_vec();
 
-        tracing::debug!("on_pool_resolve requery");
         self.requery_bad_state_par(failed_queries, false);
     }
 
@@ -708,7 +711,6 @@ impl<T: TracingProvider> BrontesBatchPricer<T> {
             })
             .collect_vec();
 
-        tracing::debug!("try_verify_subgraph requery");
         self.requery_bad_state_par(requery, true);
     }
 
@@ -990,7 +992,7 @@ impl<T: TracingProvider> BrontesBatchPricer<T> {
     /// this lets us sync between the two tasks and only let a certain amount
     /// of pre-processing occur.
     fn process_future_blocks(&self) {
-        if self.completed_block + 300 > self.current_block {
+        if self.completed_block + self.max_pending as u64 + 1 > self.current_block {
             self.metrics
                 .as_ref()
                 .inspect(|m| m.needs_more_data(self.range_id, true));
