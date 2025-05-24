@@ -143,7 +143,6 @@ impl ClickhouseBuffered {
         std::thread::spawn(move || {
             tokio::runtime::Builder::new_multi_thread()
                 .worker_threads(4)
-                .thread_name("clickhouse_buffered")
                 .enable_all()
                 .build()
                 .unwrap()

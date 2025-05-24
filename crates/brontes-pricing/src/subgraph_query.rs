@@ -5,7 +5,6 @@ use alloy_primitives::Address;
 use brontes_types::{FastHashSet, SubGraphEdge};
 use itertools::Itertools;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use tracing::instrument;
 
 use crate::{
     types::{PairWithFirstPoolHop, PoolUpdate},
@@ -16,32 +15,6 @@ const SUBGRAPH_TIMEOUT: Duration = Duration::from_millis(100);
 
 type GraphSeachParRes = (Vec<Vec<(Address, PoolUpdate)>>, Vec<Vec<NewGraphDetails>>);
 
-#[instrument(target = "rayon", name = "rayon_job", skip_all)]
-fn process_pool_update(
-    graph: &GraphManager,
-    quote: Address,
-    msg: PoolUpdate,
-) -> Option<(Vec<(Address, PoolUpdate)>, Vec<NewGraphDetails>)> {
-    let pair = msg.get_pair(quote)?;
-    let is_transfer = msg.is_transfer();
-
-    let pair0 = Pair(pair.0, quote);
-    let pair1 = Pair(pair.1, quote);
-    let pair = Some(pair).filter(|_| !is_transfer).unwrap_or_default();
-
-    let key0 = PairWithFirstPoolHop::from_pair_gt(pair0, pair);
-    let key1 = PairWithFirstPoolHop::from_pair_gt(pair1, pair.flip());
-
-    let (state, path) = on_new_pool_pair(
-        graph,
-        msg,
-        pair,
-        (!graph.has_subgraph_goes_through(key0)).then_some(pair0),
-        (!graph.has_subgraph_goes_through(key1)).then_some(pair1),
-    );
-    Some((state, path))
-}
-
 pub fn graph_search_par(
     graph: &GraphManager,
     quote: Address,
@@ -49,7 +22,26 @@ pub fn graph_search_par(
 ) -> GraphSeachParRes {
     let (state, pools): (Vec<_>, Vec<_>) = updates
         .into_par_iter()
-        .filter_map(|msg| process_pool_update(graph, quote, msg))
+        .filter_map(|msg| {
+            let pair = msg.get_pair(quote)?;
+            let is_transfer = msg.is_transfer();
+
+            let pair0 = Pair(pair.0, quote);
+            let pair1 = Pair(pair.1, quote);
+            let pair = Some(pair).filter(|_| !is_transfer).unwrap_or_default();
+
+            let key0 = PairWithFirstPoolHop::from_pair_gt(pair0, pair);
+            let key1 = PairWithFirstPoolHop::from_pair_gt(pair1, pair.flip());
+
+            let (state, path) = on_new_pool_pair(
+                graph,
+                msg,
+                pair,
+                (!graph.has_subgraph_goes_through(key0)).then_some(pair0),
+                (!graph.has_subgraph_goes_through(key1)).then_some(pair1),
+            );
+            Some((state, path))
+        })
         .unzip();
 
     (state, pools)
@@ -79,80 +71,63 @@ pub struct StateQueryRes {
     pub edges:        Vec<Vec<SubGraphEdge>>,
 }
 
-#[instrument(target = "rayon", name = "rayon_job", skip_all)]
-fn process_requery_pair(
-    graph: &GraphManager,
-    requery_pair: RequeryPairs,
-) -> StateQueryRes {
-    let RequeryPairs { pair, block, ignore_state, frayed_ends, extends_pair } = requery_pair;
-    let gt = pair.get_goes_through();
-    let full_pair = pair.get_pair();
-    let default_extends_pair = graph.has_extension(&gt, full_pair.1);
-
-    // if we have no direct extensions we are looking for, we will search the l
-    if frayed_ends.is_empty() {
-        let search_pair = extends_pair
-            .map(|extends| Pair(full_pair.0, extends.0))
-            .unwrap_or(full_pair);
-
-        let (edges, extends_pair) = graph.create_subgraph(
-            block,
-            (!gt.is_zero()).then_some(gt),
-            search_pair,
-            ignore_state,
-            100,
-            None,
-            SUBGRAPH_TIMEOUT,
-            default_extends_pair.is_some(),
-            None,
-        );
-
-        return StateQueryRes { pair, extends_pair, edges: vec![edges], block }
-    }
-
-    StateQueryRes {
-        edges: frayed_ends
-            .into_iter()
-            .zip(vec![pair.get_pair().0].into_iter().cycle())
-            .collect_vec()
-            .into_par_iter()
-            .map(|(end, start)| process_frayed_end(graph, gt, &ignore_state, &default_extends_pair, start, end))
-            .collect::<Vec<_>>(),
-        pair,
-        block,
-        extends_pair: default_extends_pair,
-    }
-}
-
-#[instrument(target = "rayon", name = "rayon_job", skip_all)]
-fn process_frayed_end(
-    graph: &GraphManager,
-    gt: Pair,
-    ignore_state: &FastHashSet<Pair>,
-    default_extends_pair: &Option<Pair>,
-    start: Address,
-    end: Address,
-) -> Vec<SubGraphEdge> {
-    graph
-        .create_subgraph(
-            0, // block is not used in this context based on the original code
-            (!gt.is_zero()).then_some(gt),
-            Pair(start, end),
-            ignore_state.clone(),
-            0,
-            None,
-            SUBGRAPH_TIMEOUT,
-            default_extends_pair.is_some(),
-            None,
-        )
-        .0
-}
-
 // already generated subgraph but need to fill in gaps
 pub fn par_state_query(graph: &GraphManager, pairs: Vec<RequeryPairs>) -> ParStateQueryRes {
     pairs
         .into_par_iter()
-        .map(|requery_pair| process_requery_pair(graph, requery_pair))
+        .map(|RequeryPairs { pair, block, ignore_state, frayed_ends, extends_pair }| {
+            let gt = pair.get_goes_through();
+            let full_pair = pair.get_pair();
+            let default_extends_pair = graph.has_extension(&gt, full_pair.1);
+
+            // if we have no direct extensions we are looking for, we will search the l
+            if frayed_ends.is_empty() {
+                let search_pair = extends_pair
+                    .map(|extends| Pair(full_pair.0, extends.0))
+                    .unwrap_or(full_pair);
+
+                let (edges, extends_pair) = graph.create_subgraph(
+                    block,
+                    (!gt.is_zero()).then_some(gt),
+                    search_pair,
+                    ignore_state,
+                    100,
+                    None,
+                    SUBGRAPH_TIMEOUT,
+                    default_extends_pair.is_some(),
+                    None,
+                );
+
+                return StateQueryRes { pair, extends_pair, edges: vec![edges], block }
+            }
+
+            StateQueryRes {
+                edges: frayed_ends
+                    .into_iter()
+                    .zip(vec![pair.get_pair().0].into_iter().cycle())
+                    .collect_vec()
+                    .into_par_iter()
+                    .map(|(end, start)| {
+                        graph
+                            .create_subgraph(
+                                block,
+                                (!gt.is_zero()).then_some(gt),
+                                Pair(start, end),
+                                ignore_state.clone(),
+                                0,
+                                None,
+                                SUBGRAPH_TIMEOUT,
+                                default_extends_pair.is_some(),
+                                None,
+                            )
+                            .0
+                    })
+                    .collect::<Vec<_>>(),
+                pair,
+                block,
+                extends_pair: default_extends_pair,
+            }
+        })
         .collect::<Vec<_>>()
 }
 

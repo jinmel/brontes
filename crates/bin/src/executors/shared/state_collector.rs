@@ -168,11 +168,6 @@ impl<T: TracingProvider, DB: LibmdbxReader + DBWriter, CH: ClickhouseHandle> Str
             && self.collection_future.is_none()
         {
             return Poll::Ready(None)
-        } else {
-            let is_finished = self.mark_as_finished.load(SeqCst);
-            let metadata_fetcher_finished = self.metadata_fetcher.is_finished();
-            let collection_future_is_none = self.collection_future.is_none();
-            tracing::debug!(target:"state_collector::poll_next", ?is_finished, ?metadata_fetcher_finished, ?collection_future_is_none, "Waiting for next block");
         }
 
         self.metadata_fetcher

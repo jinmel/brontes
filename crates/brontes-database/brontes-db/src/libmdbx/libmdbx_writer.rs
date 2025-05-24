@@ -571,7 +571,6 @@ impl LibmdbxWriter {
         std::thread::spawn(move || {
             tokio::runtime::Builder::new_multi_thread()
                 .worker_threads(2)
-                .thread_name("libmdbx_writer")
                 .enable_all()
                 .build()
                 .unwrap()
