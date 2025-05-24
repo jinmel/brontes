@@ -99,18 +99,18 @@ impl<T: TracingProvider, DB: DBWriter + LibmdbxReader, CH: ClickhouseHandle, P: 
 
     #[cfg(not(feature = "local-reth"))]
     fn start_block_inspector(&mut self) -> bool {
-        tracing::debug!(target:"tip_inspector::start_block_inspector", "start block inspector");
+        tracing::debug!("start block inspector");
         if self.state_collector.is_collecting_state() {
-            tracing::debug!(target:"tip_inspector::start_block_inspector", "is collecting state");
+            tracing::debug!("is collecting state");
             return false
         }
 
-        tracing::debug!(target:"tip_inspector::start_block_inspector", "start getting latest block number");
+        tracing::debug!("start getting latest block number");
         let cur_block = tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current()
                 .block_on(async { self.parser.get_latest_block_number().await })
         });
-        tracing::debug!(target:"tip_inspector::start_block_inspector", ?cur_block, "got latest block number");
+        tracing::debug!(?cur_block, %self.back_from_tip, %self.current_block, "got latest block number");
 
         match cur_block {
             Ok(chain_tip) => chain_tip - self.back_from_tip > self.current_block,
@@ -139,11 +139,11 @@ impl<T: TracingProvider, DB: DBWriter + LibmdbxReader, CH: ClickhouseHandle, P: 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         // given we pull the next block sync, we use this to trigger looking
         // for the next block.
-        tracing::info!(target:"tip_inspector::poll", "polling tip inspector");
+        tracing::info!("polling tip inspector");
         while self.poll_interval.poll_tick(cx).is_ready() {}
 
         if self.start_block_inspector() && self.state_collector.should_process_next_block() {
-            tracing::info!(target:"tip_inspector::poll", "starting new tip block");
+            tracing::info!("starting new tip block");
             let block = self.current_block;
             let metrics = self.range_metrics.clone();
             tracing::info!(%block,"starting new tip block");
@@ -154,7 +154,7 @@ impl<T: TracingProvider, DB: DBWriter + LibmdbxReader, CH: ClickhouseHandle, P: 
             });
         } else {
             let current_block = self.current_block;
-            tracing::info!(target:"tip_inspector::poll", ?current_block, "Waiting for next block");
+            tracing::info!(?current_block, "Waiting for next block");
         }
 
         if let Poll::Ready(item) = self.state_collector.poll_next_unpin(cx) {
