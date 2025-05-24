@@ -23,7 +23,6 @@ use tracing::{error, info};
 use tracing_subscriber::filter::Directive;
 
 fn main() -> eyre::Result<()> {
-    console_subscriber::init();
     if dotenv::dotenv().is_err() {
         eprintln!("Failed to load .env file");
     };
