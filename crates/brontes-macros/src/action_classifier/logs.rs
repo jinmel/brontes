@@ -464,6 +464,16 @@ impl ToTokens for LogData<'_> {
             paste::paste!(
                 let mut log_res = [<#log_builder_struct:camel>]::new();
             );
+            
+            // Log transaction hash and block information for debugging
+            ::tracing::trace!(
+                block = block,
+                tx_idx = tx_idx,
+                trace_idx = call_info.trace_idx,
+                target_address = ?call_info.target_address,
+                "Processing logs for transaction"
+            );
+            
             let mut repeating_modifier = 0usize;
 
             #parsed_paths
