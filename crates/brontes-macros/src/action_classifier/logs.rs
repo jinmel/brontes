@@ -466,7 +466,7 @@ impl ToTokens for LogData<'_> {
             );
             
             // Log transaction hash and block information for debugging
-            ::tracing::trace!(
+            ::tracing::error!(
                 block = block,
                 tx_idx = tx_idx,
                 trace_idx = call_info.trace_idx,
