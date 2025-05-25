@@ -81,7 +81,8 @@ impl NormalizedAction for Action {
     }
 
     fn get_trace_index(&self) -> u64 {
-        match self {
+        tracing::debug!(target: "my", "get_trace_index: {:?}", self);
+        let tx_idx = match self {
             Self::Swap(s) => s.trace_index,
             Self::SwapWithFee(s) => s.trace_index,
             Self::FlashLoan(f) => f.trace_index,
@@ -98,7 +99,9 @@ impl NormalizedAction for Action {
             Self::PoolConfigUpdate(p) => p.trace_index,
             Self::Aggregator(a) => a.trace_index,
             Self::Revert => unreachable!("no trace index for revert"),
-        }
+        };
+        tracing::debug!(target: "my", "get_trace_index: {:?}", tx_idx);
+        tx_idx
     }
 }
 
