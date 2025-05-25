@@ -456,13 +456,6 @@ impl ToTokens for LogData<'_> {
 
         let log_result = quote!(
             if call_info.logs.is_empty() && call_info.delegate_logs.is_empty() {
-                ::tracing::error!(
-                    block = call_info.block,
-                    tx_idx = call_info.tx_idx,
-                    trace_idx = call_info.trace_idx,
-                    target_address = ?call_info.target_address,
-                    "Processing logs for transaction"
-                );
                 ::tracing::error!(?call_info, "tried to decode using logs when no logs where found \
                                   for call");
             }
@@ -470,6 +463,15 @@ impl ToTokens for LogData<'_> {
 
             paste::paste!(
                 let mut log_res = [<#log_builder_struct:camel>]::new();
+            );
+            
+            // Log transaction hash and block information for debugging
+            ::tracing::trace!(
+                block = block,
+                tx_idx = tx_idx,
+                trace_idx = call_info.trace_idx,
+                target_address = ?call_info.target_address,
+                "Processing logs for transaction"
             );
             
             let mut repeating_modifier = 0usize;
