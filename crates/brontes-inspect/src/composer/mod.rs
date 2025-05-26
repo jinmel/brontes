@@ -115,6 +115,8 @@ fn run_inspectors(
         })
         .collect::<Vec<_>>();
 
+    tracing::info!("results possible mev txes: {:?}", possible_mev_txes.clone());
+
     results.iter().for_each(|bundle| {
         bundle
             .data
