@@ -380,6 +380,13 @@ impl BrontesTracingInspector {
         let gas_used = res.gas_used().into();
         let trace = self.build_trace(info.hash.unwrap(), info.block_number.unwrap());
 
+        tracing::info!(
+            "block_number {:?} tx_hash {:?} trace: {:?}",
+            info.block_number.unwrap(),
+            info.hash.unwrap(),
+            trace.clone()
+        );
+
         TxTrace {
             block_number: info.block_number.unwrap_or_default(),
             trace: trace.unwrap_or_default(),
