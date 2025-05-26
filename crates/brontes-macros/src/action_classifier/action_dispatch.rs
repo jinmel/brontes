@@ -120,6 +120,7 @@ fn expand_match_dispatch(
                     db_tx
                 ).map(|res| {
                     let action = res.get_action();
+                    ::tracing::info!("get action succeeded result: {:?}", action.clone());
                     Some((res, action))
                  }).unwrap_or_else(|e| {
                         ::tracing::warn!(error=%e,
