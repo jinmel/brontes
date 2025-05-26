@@ -7,6 +7,7 @@ use prometheus::{
     IntGauge,
     Opts,
 };
+use alloy_primitives::Address;
 use reth_metrics::Metrics;
 
 #[derive(Clone)]
@@ -34,6 +35,8 @@ pub struct GlobalRangeMetrics {
     pub latest_processed_block:      IntGauge,  
     /// gas used for the range
     pub gas_used:                    IntGaugeVec,
+    /// express lane auction winner
+    pub express_lane_auction_winner: IntGaugeVec,
 }
 
 impl GlobalRangeMetrics {
@@ -118,6 +121,12 @@ impl GlobalRangeMetrics {
             &["range_id"]
         ).unwrap();
 
+        let express_lane_auction_winner = register_int_gauge_vec!(
+            "express_lane_auction_winner",
+            "express lane auction winner",
+            &["address"]
+        ).unwrap();
+
         Self {
             pending_trees,
             poll_rate,
@@ -131,6 +140,7 @@ impl GlobalRangeMetrics {
             processing_run_time_ms: metrics::register_histogram!("brontes_processing_runtime_ms"),
             latest_processed_block,
             gas_used,
+            express_lane_auction_winner,
         }
     }
 
@@ -223,6 +233,10 @@ impl GlobalRangeMetrics {
     pub fn update_gas_used(&self, id: usize, gas: u64) {
         self.gas_used.with_label_values(&[&format!("{id}")])
             .set(gas as i64);
+    }
+
+    pub fn add_express_lane_auction_winner(&self, winner_address: Address) {
+        self.express_lane_auction_winner.with_label_values(&[&winner_address.to_string()]).inc();
     }
 }
 
