@@ -4,7 +4,7 @@ use alloy_rpc_types::Log;
 use brontes_database::libmdbx::{DBWriter, LibmdbxReader};
 pub use brontes_types::traits::TracingProvider;
 use brontes_types::{structured_trace::TxTrace, Protocol};
-use brontes_timeboost::auction::{ExpressLaneAuction, ExpressLaneControllerInfo};
+use brontes_timeboost::auction::{ExpressLaneAuction, ExpressLaneAuctionUpdate};
 use futures::Future;
 use reth_primitives::{BlockHash, BlockNumberOrTag, Header, B256};
 use alloy_primitives::{Address, FixedBytes};
@@ -36,7 +36,7 @@ pub type ParserFuture =
     Pin<Box<dyn Future<Output = Option<(BlockHash, Vec<TxTrace>, Header)>> + Send + 'static>>;
 
 pub type ExpressLaneAuctionFuture =
-    Pin<Box<dyn Future<Output = eyre::Result<Option<ExpressLaneControllerInfo>>> + Send + 'static>>;
+    Pin<Box<dyn Future<Output = eyre::Result<Vec<ExpressLaneAuctionUpdate>>> + Send + 'static>>;
 
 pub type TraceClickhouseFuture = Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
 
@@ -100,11 +100,11 @@ impl<T: TracingProvider, DB: LibmdbxReader + DBWriter> Parser<T, DB> {
         }
     }
 
-    pub fn get_express_lane_controller(&self, block_num: u64) -> ExpressLaneAuctionFuture {
+    pub fn get_express_lane_updates(&self, block_num: u64) -> ExpressLaneAuctionFuture {
         let express_lane_auction = self.express_lane_auction.clone();
         tracing::info!(target: "brontes", "getting express lane auction controller for block: {:?}", block_num);
         Box::pin(async move {
-            express_lane_auction.check_express_lane_controller(block_num).await
+            express_lane_auction.fetch_auction_events(block_num).await
         }) as ExpressLaneAuctionFuture
     }
 
