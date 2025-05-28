@@ -89,7 +89,7 @@ impl<'db, T: TracingProvider, DB: LibmdbxReader + DBWriter> Classifier<'db, T, D
             self.finish_classification(&mut tree, further_classification_requests);
         tree.finalize_tree();
 
-        tracing::info!("finish_classification: {:?}", finish_classification);
+        // tracing::info!("finish_classification: {:?}", finish_classification);
 
         tree
     }
