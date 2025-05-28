@@ -262,6 +262,10 @@ impl<T: TracingProvider, DB: LibmdbxReader + DBWriter> TraceParser<T, DB> {
             .replay_block_transactions(BlockId::Number(BlockNumberOrTag::Number(block_num)))
             .await;
 
+        if let Err(e) = merged_trace {
+            error!(%block_num, "failed to trace block: {:?}", e);
+        }
+
         let mut stats = BlockStats::new(block_num, None);
         let trace = match merged_trace {
             Ok(Some(t)) => Some(t),
