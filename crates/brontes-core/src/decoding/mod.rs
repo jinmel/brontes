@@ -2,8 +2,9 @@ use std::{collections::HashMap, pin::Pin, sync::Arc};
 
 use alloy_rpc_types::Log;
 use brontes_database::libmdbx::{DBWriter, LibmdbxReader};
-pub use brontes_types::traits::{LogProvider, TracingProvider};
+pub use brontes_types::traits::TracingProvider;
 use brontes_types::{structured_trace::TxTrace, Protocol};
+use brontes_timeboost::auction::{ExpressLaneAuction, ExpressLaneAuctionUpdate};
 use futures::Future;
 use reth_primitives::{BlockHash, BlockNumberOrTag, Header, B256};
 use alloy_primitives::{Address, FixedBytes};
@@ -34,13 +35,17 @@ pub type LogParserFuture =
 pub type ParserFuture =
     Pin<Box<dyn Future<Output = Option<(BlockHash, Vec<TxTrace>, Header)>> + Send + 'static>>;
 
+pub type ExpressLaneAuctionFuture =
+    Pin<Box<dyn Future<Output = eyre::Result<Vec<ExpressLaneAuctionUpdate>>> + Send + 'static>>;
+
 pub type TraceClickhouseFuture = Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
 
 pub struct Parser<T: TracingProvider, DB: LibmdbxReader + DBWriter> {
     parser: TraceParser<T, DB>,
+    express_lane_auction: ExpressLaneAuction<T>,
 }
 
-pub struct LogParser<T: LogProvider, DB: LibmdbxReader + DBWriter> {
+pub struct LogParser<T: TracingProvider, DB: LibmdbxReader + DBWriter> {
     parser: EthLogParser<T, DB>,
 }
 
@@ -50,9 +55,10 @@ impl<T: TracingProvider, DB: LibmdbxReader + DBWriter> Parser<T, DB> {
         libmdbx: &'static DB,
         tracing: T,
     ) -> Self {
-        let parser = TraceParser::new(libmdbx, Arc::new(tracing), Arc::new(metrics_tx)).await;
-
-        Self { parser }
+        let tracing = Arc::new(tracing);
+        let parser = TraceParser::new(libmdbx, tracing.clone(), Arc::new(metrics_tx)).await;
+        let express_lane_auction = ExpressLaneAuction::new(tracing.clone());
+        Self { parser, express_lane_auction }
     }
 
     #[cfg(not(feature = "local-reth"))]
@@ -94,6 +100,14 @@ impl<T: TracingProvider, DB: LibmdbxReader + DBWriter> Parser<T, DB> {
         }
     }
 
+    pub fn get_express_lane_updates(&self, block_num: u64) -> ExpressLaneAuctionFuture {
+        let express_lane_auction = self.express_lane_auction.clone();
+        tracing::info!(target: "brontes", "getting express lane auction controller for block: {:?}", block_num);
+        Box::pin(async move {
+            express_lane_auction.fetch_auction_events(block_num).await
+        }) as ExpressLaneAuctionFuture
+    }
+
     /// ensures no libmdbx write
     pub fn execute_discovery(&self, block_num: u64) -> ParserFuture {
         // This will satisfy its lifetime scope do to the lifetime itself living longer
@@ -112,7 +126,7 @@ impl<T: TracingProvider, DB: LibmdbxReader + DBWriter> Parser<T, DB> {
     }
 }
 
-impl<T: LogProvider, DB: LibmdbxReader + DBWriter> LogParser<T, DB> {
+impl<T: TracingProvider, DB: LibmdbxReader + DBWriter> LogParser<T, DB> {
     pub async fn new(
         libmdbx: &'static DB,
         provider: Arc<T>,
