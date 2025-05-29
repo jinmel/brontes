@@ -51,7 +51,7 @@ sol!(
 );
 
 fn convert_to_address(address: FixedBytes<32>) -> Address {
-    Address::from_slice(&address[..20])
+    Address::from_slice(&address[12..])
 }
 
 pub fn decode_event(
@@ -72,7 +72,10 @@ pub fn decode_event(
         }
         Protocol::UniswapV4 => {
             let decoded = UniswapV4::Initialize::decode_log(plog, true)?;
-            (convert_to_address(decoded.id), vec![convert_to_address(decoded.currency0), convert_to_address(decoded.currency1)])
+            (
+                Address::from_slice(&decoded.id[..20]),
+                vec![convert_to_address(decoded.currency0), convert_to_address(decoded.currency1)],
+            )
         }
         Protocol::CamelotV3 => {
             let decoded = CamelotV3::Pool::decode_log(plog, true)?;
