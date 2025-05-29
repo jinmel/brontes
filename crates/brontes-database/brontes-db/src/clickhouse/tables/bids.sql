@@ -7,4 +7,6 @@ CREATE TABLE timeboost.bids (
     amount String,
     signature String
 ) ENGINE = MergeTree()
-ORDER BY round
+PARTITION BY chain_id
+PRIMARY KEY (round)
+ORDER BY (round)
