@@ -138,7 +138,7 @@ impl GlobalRangeMetrics {
 
         let transfer_controller = register_int_counter_vec!(
             "express_lane_transfer_controller",
-            "transfer controller",
+            "express lane transfer controller",
             &["address"]
         )
         .unwrap();
@@ -158,8 +158,8 @@ impl GlobalRangeMetrics {
         .unwrap();
 
         let express_lane_transfer_controller_this_round = register_int_counter!(
-            "transfer_controller_this_round",
-            "transfer controller this round"
+            "express_lane_transfer_controller_this_round",
+            "express lane transfer controller this round"
         )
         .unwrap();
 
