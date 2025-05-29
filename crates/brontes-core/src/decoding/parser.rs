@@ -256,15 +256,27 @@ impl<T: TracingProvider, DB: LibmdbxReader + DBWriter> TraceParser<T, DB> {
 
     #[cfg(not(feature = "dyn-decode"))]
     pub(crate) async fn trace_block(&self, block_num: u64) -> (Option<Vec<TxTrace>>, BlockStats) {
+        use std::collections::HashSet;
+
         tracing::info!(target: "brontes", "tracing block: {:?}", block_num);
         let merged_trace = self
             .tracer
             .replay_block_transactions(BlockId::Number(BlockNumberOrTag::Number(block_num)))
             .await;
-
         let mut stats = BlockStats::new(block_num, None);
+
         let trace = match merged_trace {
-            Ok(Some(t)) => Some(t),
+            Ok(Some(t)) => {
+                let mut eoa_address = HashSet::new();
+                t.iter().for_each(|tx| {
+                    if !tx.trace.is_empty() {
+                        let first_element = &tx.trace[0];
+                        eoa_address.insert(first_element.msg_sender);
+                    }
+                });
+                stats.eoa_address_num = eoa_address.len() as u64;
+                Some(t)
+            }
             Ok(None) => {
                 stats.err = Some(TraceParseErrorKind::TracesMissingBlock);
                 None

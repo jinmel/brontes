@@ -23,14 +23,15 @@ impl From<TraceMetricEvent> for ParserMetricEvents {
 
 #[derive(Clone, Debug)]
 pub struct BlockStats {
-    pub block_num: u64,
-    pub txs:       Vec<TransactionStats>,
-    pub err:       Option<TraceParseErrorKind>,
+    pub block_num:       u64,
+    pub txs:             Vec<TransactionStats>,
+    pub err:             Option<TraceParseErrorKind>,
+    pub eoa_address_num: u64,
 }
 
 impl BlockStats {
     pub fn new(block_num: u64, err: Option<TraceParseErrorKind>) -> Self {
-        Self { block_num, txs: Vec::new(), err }
+        Self { block_num, txs: Vec::new(), err, eoa_address_num: 0 }
     }
 
     pub fn trace(&self) {

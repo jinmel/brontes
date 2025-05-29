@@ -5,15 +5,33 @@ use reth_metrics::Metrics;
 use tracing::trace;
 pub mod types;
 pub mod utils;
+use prometheus::HistogramVec;
 
 use super::TraceMetricEvent;
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct TraceMetrics {
-    txs: HashMap<String, TransactionTracingMetrics>,
+    txs:             HashMap<String, TransactionTracingMetrics>,
+    eoa_address_num: HistogramVec,
+}
+
+impl Default for TraceMetrics {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl TraceMetrics {
+    pub fn new() -> Self {
+        let eoa_address_num = prometheus::register_histogram_vec!(
+            "active_user_num",
+            "eoa_address_num per block",
+            &["block_num"]
+        )
+        .unwrap();
+        Self { txs: HashMap::new(), eoa_address_num }
+    }
+
     /// Returns existing or initializes a new instance of [LiveRelayMetrics]
     #[allow(dead_code)]
     pub(crate) fn get_transaction_metrics(
@@ -27,13 +45,22 @@ impl TraceMetrics {
 
     pub(crate) fn handle_event(&mut self, event: TraceMetricEvent) {
         trace!(target: "tracing::metrics", ?event, "Metric event received");
-        // match event {
-        //     TraceMetricEvent::TraceMetricRecieved(_) => panic!("NOT
-        // IMPLEMENTED YET"),
-        //     TraceMetricEvent::TransactionMetricRecieved(_) => panic!("NOT
-        // IMPLEMENTED YET"),
-        //     TraceMetricEvent::BlockMetricRecieved(_) => panic!("NOT
-        // IMPLEMENTED YET"), }
+        match event {
+            //     TraceMetricEvent::TraceMetricRecieved(_) => panic!(
+            //         "NOT
+            // IMPLEMENTED YET"
+            //     ),
+            //     TraceMetricEvent::TransactionMetricRecieved(_) => panic!(
+            //         "NOT
+            // IMPLEMENTED YET"
+            //     ),
+            TraceMetricEvent::BlockMetricRecieved(block) => {
+                self.eoa_address_num
+                    .with_label_values(&[&block.block_num.to_string()])
+                    .observe(block.eoa_address_num as f64);
+            }
+            _ => {}
+        }
     }
 }
 #[allow(dead_code)]
