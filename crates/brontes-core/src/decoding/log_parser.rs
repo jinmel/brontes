@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[cfg(feature = "dyn-decode")]
 use alloy_json_abi::JsonAbi;
@@ -23,7 +23,7 @@ use crate::decoding::dyn_decode::decode_input_with_abi;
 pub struct EthLogParser<T: TracingProvider, DB: LibmdbxReader + DBWriter> {
     libmdbx:                &'static DB,
     pub provider:           Arc<T>,
-    pub protocol_to_events: HashMap<Protocol, (Address, FixedBytes<32>)>,
+    pub protocol_to_events: HashMap<Protocol, Vec<(Address, FixedBytes<32>)>>,
 }
 
 impl<T: TracingProvider, DB: LibmdbxReader + DBWriter> Clone for EthLogParser<T, DB> {
@@ -40,7 +40,7 @@ impl<T: TracingProvider, DB: LibmdbxReader + DBWriter> EthLogParser<T, DB> {
     pub async fn new(
         libmdbx: &'static DB,
         provider: Arc<T>,
-        protocol_to_events: HashMap<Protocol, (Address, FixedBytes<32>)>,
+        protocol_to_events: HashMap<Protocol, Vec<(Address, FixedBytes<32>)>>,
     ) -> Self {
         Self { libmdbx, provider, protocol_to_events }
     }
@@ -62,17 +62,25 @@ impl<T: TracingProvider, DB: LibmdbxReader + DBWriter> EthLogParser<T, DB> {
         let addresses = self
             .protocol_to_events
             .iter()
-            .map(|(_, (address, _))| *address)
-            .collect::<Vec<_>>();
+            .flat_map(|(_, addresses)| addresses.iter().map(|(address, _)| *address))
+            .collect::<HashSet<_>>() // Collect into a HashSet to merge duplicates
+            .into_iter()
+            .collect::<Vec<_>>(); // Convert the HashSet back into a Vec
         let topics = self
             .protocol_to_events
             .iter()
-            .map(|(_, (_, topic))| *topic)
-            .collect::<Vec<_>>();
+            .flat_map(|(_, events)| events.iter().map(|(_, topic)| *topic))
+            .collect::<HashSet<_>>() // Collect into a HashSet to merge duplicates
+            .into_iter()
+            .collect::<Vec<_>>(); // Convert the HashSet back into a Vec
         let address_to_protocol = self
             .protocol_to_events
             .iter()
-            .map(|(protocol, (address, _))| (address, protocol))
+            .flat_map(|(protocol, addresses)| {
+                addresses
+                    .iter()
+                    .map(move |(address, _)| (address, protocol))
+            })
             .collect::<HashMap<_, _>>();
         let filter = Filter::new()
             .address(addresses)

@@ -145,3 +145,7 @@ pub const LFJ_V2_1_DEX_FACTORY_ADDRESS: Address =
     Address::new(hex!("8e42f2F4101563bF679975178e880FD87d3eFd4e"));
 pub const LFJ_V2_2_DEX_FACTORY_ADDRESS: Address =
     Address::new(hex!("b43120c4745967fa9b93E79C149E66B0f2D6Fe0c"));
+pub const PENDLE_MARKET_V3_FACTORY_ADDRESS: Address =
+    Address::new(hex!("91716C4EDA1Fb55e84Bf8b4c7085f84285c19085"));
+pub const PENDLE_YIELD_CONTRACT_FACTORY_ADDRESS: Address =
+    Address::new(hex!("FF29e023910FB9bfc86729c1050AF193A45a0C0c"));
