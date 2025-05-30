@@ -239,12 +239,7 @@ impl<DB: LibmdbxReader> AtomicArbInspector<'_, DB> {
         );
 
         self.utils.get_profit_metrics().inspect(|m| {
-            m.publish_profit_metrics(
-                MevType::AtomicArb,
-                protocols,
-                metadata.block_num,
-                profit.to_float(),
-            )
+            m.publish_profit_metrics(MevType::AtomicArb, protocols, profit.to_float())
         });
 
         Some(Bundle { header, data })

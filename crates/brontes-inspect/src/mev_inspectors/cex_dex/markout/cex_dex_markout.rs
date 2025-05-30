@@ -294,7 +294,6 @@ impl<DB: LibmdbxReader> CexDexMarkoutInspector<'_, DB> {
             m.publish_profit_metrics(
                 if batch_swap { MevType::CexDexRfq } else { MevType::CexDexTrades },
                 protocols,
-                metadata.block_num,
                 profit_usd,
             )
         });

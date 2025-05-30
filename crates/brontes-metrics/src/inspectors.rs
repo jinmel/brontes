@@ -29,29 +29,19 @@ impl ProfitMetrics {
             profit_histogram: prometheus::register_histogram_vec!(
                 "profit_usd",
                 "Distribution of profit in USD by MEV type, protocol, and block_number",
-                &["mev_type", "protocol", "block_number"],
+                &["mev_type", "protocol"],
                 profit_buckets
             )
             .expect("Failed to register profit_usd histogram"),
         }
     }
 
-    pub fn publish_profit_metrics(
-        &self,
-        mev: MevType,
-        protocols: HashSet<Protocol>,
-        block_number: u64,
-        profit: f64,
-    ) {
+    pub fn publish_profit_metrics(&self, mev: MevType, protocols: HashSet<Protocol>, profit: f64) {
         let num_protocols = protocols.len();
         let profit_per_protocol = profit / num_protocols as f64;
         for protocol in protocols {
             self.profit_histogram
-                .with_label_values(&[
-                    mev.as_ref(),
-                    protocol.to_string().as_str(),
-                    &block_number.to_string(),
-                ])
+                .with_label_values(&[mev.as_ref(), protocol.to_string().as_str()])
                 .observe(profit_per_protocol);
         }
     }
