@@ -161,7 +161,7 @@ impl<'db, DB: LibmdbxReader + DBWriter> DiscoveryLogsOnlyClassifier<'db, DB> {
         let futures = logs
             .into_iter()
             .map(|(protocol, logs)| {
-                let tracer_clone = Arc::clone(&tracer);
+                let tracer_clone = tracer.clone();
                 async move {
                     self.process_classification(protocol, logs, tracer_clone)
                         .await;
@@ -179,7 +179,7 @@ impl<'db, DB: LibmdbxReader + DBWriter> DiscoveryLogsOnlyClassifier<'db, DB> {
         tracer: Arc<T>,
     ) {
         let decoded_events_futures = logs.into_iter().map(|log| {
-            let tracer_clone = Arc::clone(&tracer);
+            let tracer_clone = tracer.clone();
             async move {
                 match decode_event(protocol, &log.inner, tracer_clone).await {
                     Ok((pool_address, tokens)) => Some((
