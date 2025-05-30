@@ -1,6 +1,6 @@
 use brontes_macros::{action_impl, discovery_impl};
 use brontes_types::{
-    normalized_actions::{NormalizedBurn, NormalizedMint, NormalizedSwap},
+    normalized_actions::{NormalizedBurn, NormalizedMint, NormalizedNewPool, NormalizedSwap},
     structured_trace::CallInfo,
     utils::ToScaledRational,
     Protocol,
@@ -8,6 +8,26 @@ use brontes_types::{
 use alloy_primitives::Address;
 use alloy_sol_types::SolType;
 use alloy_dyn_abi::{DynSolType, DynSolValue};
+
+action_impl!(
+    Protocol::FluidDEX,
+    crate::FluidDexFactory::deployDexCall,
+    NewPool,
+    [DexT1Deployed],
+    logs:true,
+    |info: CallInfo, log_data:FluidDEXDeployDexCallLogs,_| {
+        let dex_t1_deployed=log_data.dex_t1_deployed_field?;
+        let pool_address=dex_t1_deployed.dex;
+        let tokens=vec![dex_t1_deployed.supplyToken, dex_t1_deployed.borrowToken];
+
+        Ok(NormalizedNewPool {
+            trace_index: info.trace_idx,
+            protocol: Protocol::FluidDEX,
+            pool_address,
+            tokens,
+        })
+    }
+);
 
 action_impl!(
     Protocol::FluidDEX,
