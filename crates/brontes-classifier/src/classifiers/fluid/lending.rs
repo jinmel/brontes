@@ -6,6 +6,7 @@ use alloy_sol_types::SolType;
 use brontes_macros::{action_impl, discovery_impl};
 use brontes_pricing::make_call_request;
 use brontes_types::{
+    constants::{FLUID_VAULT_FACTORY_ADDRESS, FLUID_VAULT_RESOLVER_ADDRESS},
     normalized_actions::{NormalizedBurn, NormalizedMint, NormalizedNewPool, NormalizedSwap},
     structured_trace::CallInfo,
     traits::TracingProvider,
@@ -19,13 +20,10 @@ discovery_impl!(
     crate::FluidVaultFactory::deployVaultCall,
     0x324c5Dc1fC42c7a4D43d92df1eBA58a54d13Bf2d,
     |deployed_address: Address, trace_index: u64, _: deployVaultCall, tracer: Arc<T>| async move {
-        let vault_resolver =
-            Address::from_str("0x876683648c9a749a57963Dd36ad9b45Fa989921F").unwrap();
-
         parse_market_pool(
             Protocol::FluidLending,
             deployed_address,
-            vault_resolver,
+            FLUID_VAULT_RESOLVER_ADDRESS,
             trace_index,
             tracer,
         )
