@@ -140,7 +140,7 @@ pub const UNISWAP_V3_FACTORY_ADDRESS: Address =
 pub const UNISWAP_V4_FACTORY_ADDRESS: Address =
     Address::new(hex!("360E68faCcca8cA495c1B759Fd9EEe466db9FB32"));
 pub const FLUID_DEX_FACTORY_ADDRESS: Address =
-    Address::new(hex!("46978CD477A496028A18c02F07ab7F35EDBa5A54"));
+    Address::new(hex!("91716C4EDA1Fb55e84Bf8b4c7085f84285c19085"));
 pub const LFJ_V2_1_DEX_FACTORY_ADDRESS: Address =
     Address::new(hex!("8e42f2F4101563bF679975178e880FD87d3eFd4e"));
 pub const LFJ_V2_2_DEX_FACTORY_ADDRESS: Address =
