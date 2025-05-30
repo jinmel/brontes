@@ -90,7 +90,7 @@ discovery_dispatch!(
     // BalancerV1SmartPoolDiscovery,
     CamelotV2Discovery,
     CamelotV3Discovery,
-    FluidDexFactoryDiscovery,
+    FluidLendingDiscovery,
     PendleV2Discovery
 );
 

@@ -6,12 +6,16 @@ use alloy_sol_macro::sol;
 use alloy_sol_types::SolEvent;
 use brontes_database::libmdbx::{DBWriter, LibmdbxReader};
 use brontes_types::{
-    normalized_actions::pool::NormalizedNewPool, traits::TracingProvider, Protocol,
+    constants::FLUID_VAULT_RESOLVER_ADDRESS, normalized_actions::pool::NormalizedNewPool,
+    traits::TracingProvider, Protocol,
 };
 use futures::future::join_all;
 use tracing::{debug, error};
 
-use crate::{query_pendle_v2_market_tokens, ActionCollection, FactoryDiscoveryDispatch};
+use crate::{
+    query_fluid_lending_market_tokens, query_pendle_v2_market_tokens, ActionCollection,
+    FactoryDiscoveryDispatch, FluidVaultFactory,
+};
 
 sol!(
     #![sol(all_derives)]
@@ -97,6 +101,14 @@ pub async fn decode_event<T: TracingProvider>(
         Protocol::FluidDEX => {
             let decoded = FluidDEX::DexT1Deployed::decode_log(plog, true)?;
             (decoded.dex, vec![decoded.supplyToken, decoded.borrowToken])
+        }
+        Protocol::FluidLending => {
+            let decoded = FluidVaultFactory::VaultDeployed::decode_log(plog, true)?;
+            let vault = decoded.vault;
+            let tokens =
+                query_fluid_lending_market_tokens(&tracer, &vault, FLUID_VAULT_RESOLVER_ADDRESS)
+                    .await;
+            (vault, tokens)
         }
         Protocol::LFJV2_1 => {
             let decoded = LFJV2::LBPairCreated::decode_log(plog, true)?;
