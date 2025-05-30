@@ -319,7 +319,7 @@ action_impl!(
 discovery_impl!(
     FluidDexFactoryDiscovery,
     crate::FluidDexFactory::deployDexCall,
-    0x46978CD477A496028A18c02F07ab7F35EDBa5A54,
+    0x91716C4EDA1Fb55e84Bf8b4c7085f84285c19085,
     |deployed_address: Address, trace_index: u64, call_data: deployDexCall ,_| async move {
         let pool_t1_creation_code = &call_data.dexDeploymentData_[4..];
 
