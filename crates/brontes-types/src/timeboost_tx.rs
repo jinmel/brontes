@@ -1,18 +1,9 @@
 use alloy_consensus::{AnyReceiptEnvelope, TxType};
 use alloy_primitives::Address;
-use reth_primitives::arbitrary;
 use reth_rpc_types::{AnyTransactionReceipt, Log, ReceiptEnvelope, TransactionReceipt};
 use serde::{Deserialize, Serialize};
 
-/// Transaction receipt
-///
-/// This type is generic over an inner [`ReceiptEnvelope`] which contains
-/// consensus data and metadata.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(
-    any(test, feature = "arbitrary"),
-    derive(proptest_derive::Arbitrary, arbitrary::Arbitrary)
-)]
 #[serde(rename_all = "camelCase")]
 pub struct TimeboostTransactionReceipt<T = TransactionReceipt<AnyReceiptEnvelope<Log>>> {
     #[serde(flatten)]
