@@ -1,18 +1,45 @@
-use std::collections::HashMap;
+use std::{
+    collections::{HashMap, HashSet},
+    fmt,
+};
 
 use metrics::{Counter, Gauge};
 use reth_metrics::Metrics;
+use reth_primitives::Address;
 use tracing::trace;
 pub mod types;
 pub mod utils;
-use prometheus::HistogramVec;
+use prometheus::{opts, register_int_gauge_vec, IntGaugeVec};
 
 use super::TraceMetricEvent;
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum TimeSpan {
+    Block,
+    Day,
+    Week,
+    Month,
+}
+
+impl fmt::Display for TimeSpan {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TimeSpan::Block => write!(f, "block"),
+            TimeSpan::Day => write!(f, "daily"),
+            TimeSpan::Week => write!(f, "weekly"),
+            TimeSpan::Month => write!(f, "monthly"),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct TraceMetrics {
-    txs:             HashMap<String, TransactionTracingMetrics>,
-    eoa_address_num: HistogramVec,
+    txs: HashMap<String, TransactionTracingMetrics>,
+    // Store unique EOA addresses for each time span
+    eoa_addresses: HashMap<TimeSpan, HashSet<Address>>,
+    // Store the last processed block number for each time span to detect rollovers
+    last_processed_block: HashMap<TimeSpan, u64>,
+    aggregated_unique_eoa_count: IntGaugeVec,
 }
 
 impl Default for TraceMetrics {
@@ -23,13 +50,33 @@ impl Default for TraceMetrics {
 
 impl TraceMetrics {
     pub fn new() -> Self {
-        let eoa_address_num = prometheus::register_histogram_vec!(
-            "active_user_num",
-            "eoa_address_num per block",
-            &["block_num"]
+        let aggregated_unique_eoa_count_gauge = register_int_gauge_vec!(
+            opts!(
+                "aggregated_unique_eoa_count_by_interval",
+                "Total count of unique active EOA addresses for a given interval"
+            ),
+            &["interval_type"] // e.g., "block", "daily", "weekly", "monthly"
         )
-        .unwrap();
-        Self { txs: HashMap::new(), eoa_address_num }
+        .expect("Failed to register aggregated_unique_eoa_count_by_interval gauge");
+
+        let mut eoa_addresses = HashMap::new();
+        eoa_addresses.insert(TimeSpan::Block, HashSet::new());
+        eoa_addresses.insert(TimeSpan::Day, HashSet::new());
+        eoa_addresses.insert(TimeSpan::Week, HashSet::new());
+        eoa_addresses.insert(TimeSpan::Month, HashSet::new());
+
+        let mut last_processed_block = HashMap::new();
+        last_processed_block.insert(TimeSpan::Block, 0);
+        last_processed_block.insert(TimeSpan::Day, 0);
+        last_processed_block.insert(TimeSpan::Week, 0);
+        last_processed_block.insert(TimeSpan::Month, 0);
+
+        Self {
+            txs: HashMap::new(),
+            eoa_addresses,
+            last_processed_block,
+            aggregated_unique_eoa_count: aggregated_unique_eoa_count_gauge,
+        }
     }
 
     /// Returns existing or initializes a new instance of [LiveRelayMetrics]
@@ -46,21 +93,125 @@ impl TraceMetrics {
     pub(crate) fn handle_event(&mut self, event: TraceMetricEvent) {
         trace!(target: "tracing::metrics", ?event, "Metric event received");
         match event {
-            //     TraceMetricEvent::TraceMetricRecieved(_) => panic!(
-            //         "NOT
-            // IMPLEMENTED YET"
-            //     ),
-            //     TraceMetricEvent::TransactionMetricRecieved(_) => panic!(
-            //         "NOT
-            // IMPLEMENTED YET"
-            //     ),
             TraceMetricEvent::BlockMetricRecieved(block) => {
-                self.eoa_address_num
-                    .with_label_values(&[&block.block_num.to_string()])
-                    .observe(block.eoa_address_num as f64);
+                let block_num = block.block_num;
+
+                // Check for period rollovers based on block number
+                // This is a simplified approach - in production you might want to use
+                // actual timestamps from block headers
+                self.check_and_handle_rollovers(block_num);
+
+                // For per-block metrics, clear and update
+                self.eoa_addresses
+                    .get_mut(&TimeSpan::Block)
+                    .unwrap()
+                    .clear();
+                self.eoa_addresses
+                    .get_mut(&TimeSpan::Block)
+                    .unwrap()
+                    .extend(&block.eoa_addresses);
+
+                // Add to aggregated sets
+                self.eoa_addresses
+                    .get_mut(&TimeSpan::Day)
+                    .unwrap()
+                    .extend(&block.eoa_addresses);
+                self.eoa_addresses
+                    .get_mut(&TimeSpan::Week)
+                    .unwrap()
+                    .extend(&block.eoa_addresses);
+                self.eoa_addresses
+                    .get_mut(&TimeSpan::Month)
+                    .unwrap()
+                    .extend(&block.eoa_addresses);
+
+                // Update metrics
+                self.set_aggregated_unique_eoa_count(
+                    TimeSpan::Block,
+                    self.eoa_addresses[&TimeSpan::Block].len() as u64,
+                );
+                self.set_aggregated_unique_eoa_count(
+                    TimeSpan::Day,
+                    self.eoa_addresses[&TimeSpan::Day].len() as u64,
+                );
+                self.set_aggregated_unique_eoa_count(
+                    TimeSpan::Week,
+                    self.eoa_addresses[&TimeSpan::Week].len() as u64,
+                );
+                self.set_aggregated_unique_eoa_count(
+                    TimeSpan::Month,
+                    self.eoa_addresses[&TimeSpan::Month].len() as u64,
+                );
+
+                // Update last processed block
+                self.last_processed_block.insert(TimeSpan::Block, block_num);
             }
             _ => {}
         }
+    }
+
+    fn check_and_handle_rollovers(&mut self, current_block: u64) {
+        // Simplified rollover detection based on block numbers
+        // Assuming ~0.25 second blocks on Ethereum mainnet:
+        // - Daily: ~345600 blocks
+        // - Weekly: ~2419200 blocks
+        // - Monthly: ~10368000 blocks (30 days)
+
+        const BLOCKS_PER_DAY: u64 = 345600;
+        const BLOCKS_PER_WEEK: u64 = 2419200;
+        const BLOCKS_PER_MONTH: u64 = 10368000;
+
+        let last_day_block = self.last_processed_block[&TimeSpan::Day];
+        let last_week_block = self.last_processed_block[&TimeSpan::Week];
+        let last_month_block = self.last_processed_block[&TimeSpan::Month];
+
+        // Check daily rollover
+        if last_day_block > 0 && current_block / BLOCKS_PER_DAY > last_day_block / BLOCKS_PER_DAY {
+            trace!("Daily rollover detected at block {}", current_block);
+            self.eoa_addresses.get_mut(&TimeSpan::Day).unwrap().clear();
+            self.last_processed_block
+                .insert(TimeSpan::Day, current_block);
+        } else if last_day_block == 0 {
+            self.last_processed_block
+                .insert(TimeSpan::Day, current_block);
+        }
+
+        // Check weekly rollover
+        if last_week_block > 0
+            && current_block / BLOCKS_PER_WEEK > last_week_block / BLOCKS_PER_WEEK
+        {
+            trace!("Weekly rollover detected at block {}", current_block);
+            self.eoa_addresses.get_mut(&TimeSpan::Week).unwrap().clear();
+            self.last_processed_block
+                .insert(TimeSpan::Week, current_block);
+        } else if last_week_block == 0 {
+            self.last_processed_block
+                .insert(TimeSpan::Week, current_block);
+        }
+
+        // Check monthly rollover
+        if last_month_block > 0
+            && current_block / BLOCKS_PER_MONTH > last_month_block / BLOCKS_PER_MONTH
+        {
+            trace!("Monthly rollover detected at block {}", current_block);
+            self.eoa_addresses
+                .get_mut(&TimeSpan::Month)
+                .unwrap()
+                .clear();
+            self.last_processed_block
+                .insert(TimeSpan::Month, current_block);
+        } else if last_month_block == 0 {
+            self.last_processed_block
+                .insert(TimeSpan::Month, current_block);
+        }
+    }
+
+    /// Call this method from your aggregation logic to set daily, weekly, etc.
+    /// counts.
+    pub fn set_aggregated_unique_eoa_count(&self, interval_name: TimeSpan, count: u64) {
+        self.aggregated_unique_eoa_count
+            .with_label_values(&[&interval_name.to_string()])
+            .set(count as i64);
     }
 }
 #[allow(dead_code)]

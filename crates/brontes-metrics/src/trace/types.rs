@@ -1,5 +1,7 @@
+use std::collections::HashSet;
+
 use colored::Colorize;
-use reth_primitives::B256;
+use reth_primitives::{Address, B256};
 use tracing::debug;
 
 use crate::ParserMetricEvents;
@@ -23,15 +25,15 @@ impl From<TraceMetricEvent> for ParserMetricEvents {
 
 #[derive(Clone, Debug)]
 pub struct BlockStats {
-    pub block_num:       u64,
-    pub txs:             Vec<TransactionStats>,
-    pub err:             Option<TraceParseErrorKind>,
-    pub eoa_address_num: u64,
+    pub block_num:     u64,
+    pub txs:           Vec<TransactionStats>,
+    pub err:           Option<TraceParseErrorKind>,
+    pub eoa_addresses: HashSet<Address>,
 }
 
 impl BlockStats {
     pub fn new(block_num: u64, err: Option<TraceParseErrorKind>) -> Self {
-        Self { block_num, txs: Vec::new(), err, eoa_address_num: 0 }
+        Self { block_num, txs: Vec::new(), err, eoa_addresses: HashSet::new() }
     }
 
     pub fn trace(&self) {

@@ -267,14 +267,13 @@ impl<T: TracingProvider, DB: LibmdbxReader + DBWriter> TraceParser<T, DB> {
 
         let trace = match merged_trace {
             Ok(Some(t)) => {
-                let mut eoa_address = HashSet::new();
+                let mut eoa_addresses = HashSet::new();
                 t.iter().for_each(|tx| {
-                    if !tx.trace.is_empty() {
-                        let first_element = &tx.trace[0];
-                        eoa_address.insert(first_element.msg_sender);
-                    }
+                    tx.trace.first().map(|first| {
+                        eoa_addresses.insert(first.msg_sender);
+                    });
                 });
-                stats.eoa_address_num = eoa_address.len() as u64;
+                stats.eoa_addresses = eoa_addresses;
                 Some(t)
             }
             Ok(None) => {
