@@ -43,6 +43,7 @@
 //! `BundleData::CexDex` instances.
 use std::{
     cmp::{max, min},
+    collections::HashSet,
     sync::Arc,
 };
 
@@ -159,7 +160,10 @@ impl<DB: LibmdbxReader> CexDexQuotesInspector<'_, DB> {
         tree: Arc<BlockTree<Action>>,
         metadata: Arc<Metadata>,
     ) -> Vec<Bundle> {
-        tree.clone()
+        let mut profit_usd_total = 0.0;
+        let mut protocols = HashSet::new();
+        let bundles = tree
+            .clone()
             .collect_all(TreeSearchBuilder::default().with_actions([
                 Action::is_swap,
                 Action::is_transfer,
@@ -192,6 +196,10 @@ impl<DB: LibmdbxReader> CexDexQuotesInspector<'_, DB> {
                     .utils
                     .flatten_nested_actions(swaps.into_iter(), &|action| action.is_swap())
                     .split_return_rem(Action::try_swaps_merged);
+
+                dex_swaps.iter().for_each(|swap| {
+                    protocols.insert(swap.protocol);
+                });
 
                 let transfers: Vec<_> = rem.into_iter().split_actions(Action::try_transfer);
 
@@ -241,6 +249,7 @@ impl<DB: LibmdbxReader> CexDexQuotesInspector<'_, DB> {
 
                 let (profit_usd, cex_dex) =
                     self.filter_possible_cex_dex(possible_cex_dex, &tx_info, &metadata)?;
+                profit_usd_total += profit_usd;
 
                 let header = self.utils.build_bundle_header(
                     vec![deltas],
@@ -256,7 +265,13 @@ impl<DB: LibmdbxReader> CexDexQuotesInspector<'_, DB> {
 
                 Some(Bundle { header, data: cex_dex })
             })
-            .collect::<Vec<_>>()
+            .collect::<Vec<_>>();
+
+        self.utils.get_profit_metrics().inspect(|m| {
+            m.publish_profit_metrics(MevType::CexDexQuotes, protocols, profit_usd_total)
+        });
+
+        bundles
     }
 
     pub fn detect_cex_dex(
