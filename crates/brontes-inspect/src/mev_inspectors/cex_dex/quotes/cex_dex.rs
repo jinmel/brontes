@@ -160,8 +160,6 @@ impl<DB: LibmdbxReader> CexDexQuotesInspector<'_, DB> {
         tree: Arc<BlockTree<Action>>,
         metadata: Arc<Metadata>,
     ) -> Vec<Bundle> {
-        let mut profit_usd_total = 0.0;
-        let mut protocols = HashSet::new();
         let bundles = tree
             .clone()
             .collect_all(TreeSearchBuilder::default().with_actions([
@@ -172,6 +170,7 @@ impl<DB: LibmdbxReader> CexDexQuotesInspector<'_, DB> {
             ]))
             .filter_map(|(tx, swaps)| {
                 let tx_info = tree.get_tx_info(tx, self.utils.db)?;
+                let mut protocols = HashSet::new();
 
                 // Return early if this is an defi automation contract
                 if let Some(contract_type) = tx_info.contract_type.as_ref() {
@@ -249,7 +248,6 @@ impl<DB: LibmdbxReader> CexDexQuotesInspector<'_, DB> {
 
                 let (profit_usd, cex_dex) =
                     self.filter_possible_cex_dex(possible_cex_dex, &tx_info, &metadata)?;
-                profit_usd_total += profit_usd;
 
                 let header = self.utils.build_bundle_header(
                     vec![deltas],
@@ -263,13 +261,12 @@ impl<DB: LibmdbxReader> CexDexQuotesInspector<'_, DB> {
                     |_, token, amount| Some(price_map.get(&token)? * amount),
                 );
 
+                self.utils.get_profit_metrics().inspect(|m| {
+                    m.publish_profit_metrics(MevType::CexDexQuotes, protocols, profit_usd)
+                });
                 Some(Bundle { header, data: cex_dex })
             })
             .collect::<Vec<_>>();
-
-        self.utils.get_profit_metrics().inspect(|m| {
-            m.publish_profit_metrics(MevType::CexDexQuotes, protocols, profit_usd_total)
-        });
 
         bundles
     }
