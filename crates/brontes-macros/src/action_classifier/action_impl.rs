@@ -75,7 +75,7 @@ impl ActionMacro {
         {
             quote!(Ok(::brontes_pricing::types::DexPriceMsg::DiscoveredPool(result)))
         } else {
-            quote!({
+            quote!(
                 Ok(::brontes_pricing::types::DexPriceMsg::Update(
                     ::brontes_pricing::types::PoolUpdate {
                         block,
@@ -84,7 +84,6 @@ impl ActionMacro {
                         action: ::brontes_types::normalized_actions::Action::#action_type(result)
                     },
                 ))
-            }
             )
         };
 
@@ -110,13 +109,15 @@ impl ActionMacro {
             pub struct #exchange_name_w_call;
 
             impl crate::IntoAction for #exchange_name_w_call {
-                fn decode_call_trace<DB: ::brontes_database::libmdbx::LibmdbxReader
-                    + ::brontes_database::libmdbx::DBWriter>(
+                async fn decode_call_trace<DB: ::brontes_database::libmdbx::LibmdbxReader
+                    + ::brontes_database::libmdbx::DBWriter,
+                     T: ::brontes_types::traits::TracingProvider>(
                     &self,
                     call_info: ::brontes_types::structured_trace::CallFrameInfo<'_>,
                     block: u64,
                     tx_idx: u64,
-                    db_tx: &DB
+                    db_tx: &DB,
+                    tracer: std::sync::Arc<T>
                     ) -> ::eyre::Result<::brontes_pricing::types::DexPriceMsg> {
                     #call_data
                     #dex_price_return
@@ -175,20 +176,10 @@ impl Parse for ActionMacro {
 
 fn parse_closure(input: &mut syn::parse::ParseStream) -> syn::Result<ExprClosure> {
     let call_function: ExprClosure = input.parse()?;
-    if call_function.asyncness.is_some() {
-        return Err(syn::Error::new(input.span(), "closure cannot be async"))
-    }
-
-    if !input.is_empty() {
-        return Err(syn::Error::new(
-            input.span(),
-            "There should be no values after the call function",
-        ))
-    }
-
-    if call_function.asyncness.is_some() {
-        return Err(syn::Error::new(input.span(), "closure cannot be async"))
-    }
+    // Remove the check that prevents async closures
+    // if call_function.asyncness.is_some() {
+    //     return Err(syn::Error::new(input.span(), "closure cannot be async"))
+    // }
 
     if !input.is_empty() {
         return Err(syn::Error::new(
@@ -206,7 +197,7 @@ fn parse_config(input: &mut syn::parse::ParseStream) -> syn::Result<(bool, bool,
     let mut call_data = false;
     let mut include_delegated_logs = false;
 
-    while !input.peek(Token![|]) {
+    while !input.peek(Token![|]) && !input.peek(Token![async]) {
         let arg: Ident = input.parse()?;
         input.parse::<Token![:]>()?;
         let enabled: LitBool = input.parse()?;
