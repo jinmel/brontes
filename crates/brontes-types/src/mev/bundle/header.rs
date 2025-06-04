@@ -51,6 +51,7 @@ pub struct BundleHeader {
     // if we generated this arb without pricing
     pub no_pricing_calculated: bool,
     pub balance_deltas:        Vec<TransactionAccounting>,
+    pub timeboosted:           bool,
 }
 
 #[serde_as]
