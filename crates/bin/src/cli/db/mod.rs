@@ -16,12 +16,12 @@ mod discovery_logs;
 mod ensure_test_traces;
 mod export;
 mod init;
+mod pendle_pools;
 mod table_stats;
 #[cfg(feature = "local-clickhouse")]
 mod tip_tracer;
 mod trace_range;
 pub mod utils;
-use crate::cli::pendle_pools;
 
 #[derive(Debug, Parser)]
 pub struct Database {
