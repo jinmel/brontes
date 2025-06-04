@@ -39,7 +39,4 @@ pub enum Commands {
     /// Brontes database commands
     #[command(name = "db")]
     Database(db::Database),
-    /// Insert Pendle V2 SY pools into ClickHouse
-    #[command(name = "pendle-pools")]
-    PendlePools(pendle_pools::PendlePoolsCommand),
 }

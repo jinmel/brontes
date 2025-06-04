@@ -76,7 +76,7 @@ cargo build --bin brontes --features="local-clickhouse,arbitrum" --release 2>&1 
 
 # Run the Pendle pools insertion
 log "Executing Pendle pools insertion..."
-./target/release/brontes pendle-pools \
+./target/release/brontes db pendle-pools \
     --skip-existing=true \
     2>&1 | tee -a "$LOG_FILE"
 

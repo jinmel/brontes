@@ -92,7 +92,7 @@ CLICKHOUSE_PASSWORD=
 
 ```bash
 # Modify the script temporarily to add --dry-run flag
-./target/release/brontes pendle-pools --skip-existing=true --dry-run
+./target/release/brontes db pendle-pools --skip-existing=true --dry-run
 ```
 
 ## Monitoring
