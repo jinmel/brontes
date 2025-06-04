@@ -69,6 +69,9 @@ fn run() -> eyre::Result<()> {
                 command.execute(brontes_db_path, ctx)
             })
         }
+        Commands::PendlePools(command) => {
+            tokio::runtime::Runtime::new()?.block_on(async { command.execute().await })
+        }
     }
 }
 

@@ -117,6 +117,9 @@ pub const USD_STABLES_BY_ADDRESS: [Address; 13] = [
 pub const EURO_STABLES_BY_ADDRESS: [Address; 2] = [AGEUR_ADDRESS, VEUR_ADDRESS];
 
 pub const GOLD_STABLES_BY_ADDRESS: [Address; 0] = [];
+// Pendle V2 api url
+pub const PENDLE_V2_SY_ASSETS_API_URL: &str =
+    "https://api-v2.pendle.finance/core/v3/42161/assets/all";
 
 // DEX Factory Addresses
 pub const BALANCER_V2_VAULT_ADDRESS: Address =

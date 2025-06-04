@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand};
 
 mod db;
 mod misc;
+pub mod pendle_pools;
 mod run;
 mod utils;
 mod version_data;
@@ -38,4 +39,7 @@ pub enum Commands {
     /// Brontes database commands
     #[command(name = "db")]
     Database(db::Database),
+    /// Insert Pendle V2 SY pools into ClickHouse
+    #[command(name = "pendle-pools")]
+    PendlePools(pendle_pools::PendlePoolsCommand),
 }
