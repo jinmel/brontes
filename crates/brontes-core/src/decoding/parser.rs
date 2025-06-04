@@ -324,6 +324,10 @@ impl<T: TracingProvider, DB: LibmdbxReader + DBWriter> TraceParser<T, DB> {
                 |(trace, receipt)| {
                     let tx_hash = trace.tx_hash;
 
+                    if receipt.timeboosted {
+                        tracing::info!("timeboosted tx: {:#?}", tx_hash);
+                    }
+
                     self.parse_transaction(
                         trace,
                         #[cfg(feature = "dyn-decode")]
