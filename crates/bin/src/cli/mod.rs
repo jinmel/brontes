@@ -2,7 +2,6 @@ use clap::{Parser, Subcommand};
 
 mod db;
 mod misc;
-pub mod pendle_pools;
 mod run;
 mod utils;
 mod version_data;
