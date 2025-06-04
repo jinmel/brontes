@@ -1,45 +1,14 @@
+use std::sync::Arc;
+
+use brontes_pricing::make_call_request;
+use alloy_primitives::{Address, Uint};
 use brontes_macros::action_impl;
 use brontes_types::{
-    normalized_actions::{NormalizedLiquidation, NormalizedNewPool},
-    structured_trace::CallInfo,
-    utils::ToScaledRational,
-    Protocol,
+    constants::arbitrum::DOLOMITE_MARGIN_ADDRESS,
+    normalized_actions::{NormalizedLiquidation}, structured_trace::CallInfo, traits::TracingProvider, utils::ToScaledRational, Protocol,
 };
+use crate::DolomiteLiquidator;
 
-action_impl!(
-    Protocol::Dolomite,
-    crate::DolomiteAdmin::ownerAddMarketCall,
-    NewPool,
-    [..LogAddMarket],
-    logs: true,
-    |info: CallInfo, log_data: DolomiteOwnerAddMarketCallLogs, db:&DB| {
-        let log_data=log_data.log_add_market_field?;
-        let token=log_data.token;
-
-        let pool_address=info.target_address;
-        let protocol_details=db.get_protocol_details(pool_address);
-        match protocol_details {
-            Ok(protocol_detail) => {
-                let mut tokens=protocol_detail.get_tokens();
-                tokens.push(token);
-                Ok(NormalizedNewPool{
-                    trace_index: info.trace_idx,
-                    protocol: Protocol::Dolomite,
-                    pool_address,
-                    tokens
-                })
-            },
-            _ => {
-                Ok(NormalizedNewPool{
-                    trace_index: info.trace_idx,
-                    protocol: Protocol::Dolomite,
-                    pool_address,
-                    tokens: vec![token]
-                })
-            }
-        }
-    }
-);
 
 action_impl!(
     Protocol::Dolomite,
@@ -48,40 +17,45 @@ action_impl!(
     [..LogLiquidate],
     call_data: true,
     logs:true,
+    include_delegated_logs:true,
     |
     info: CallInfo,
     _call_data: operateCall,
     logs: DolomiteOperateCallLogs,
     db: &DB | {
-
         let log_data=logs.log_liquidate_field?;
 
         let liquidator=log_data.solidAccountOwner;
         let debtor=log_data.liquidAccountOwner;
 
-        let target_address=info.target_address;
-        let protocol_details=db.get_protocol_details(target_address)?;
+        let held_market_idx = log_data.heldMarket;
+        let owed_market_idx = log_data.owedMarket;
 
-        let tokens = protocol_details.get_tokens();
-
-
-        
-        let held_market_idx = log_data.heldMarket.to::<usize>();
-        let owed_market_idx = log_data.owedMarket.to::<usize>();
 
         // collateral market
-        let collateral_token = tokens[held_market_idx];
-        let debt_token = tokens[owed_market_idx];
-        let collateral_info = db.try_fetch_token_info(collateral_token)?;
-        // debt market
-        let debt_info = db.try_fetch_token_info(debt_token)?;
-        let covered_debt = log_data.solidHeldUpdate.deltaWei.value.to_scaled_rational(debt_info.decimals);
-        let liquidated_collateral = log_data.solidOwedUpdate.deltaWei.value.to_scaled_rational(collateral_info.decimals);
+        let collateral_tokens = tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(
+                query_dolomite_market_token(&tracer, held_market_idx)
+            )
+        });
+        let collateral_token = collateral_tokens.get(0).ok_or_else(|| eyre::eyre!("Collateral token not found"))?;
+        
+        let debt_tokens = tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(
+                query_dolomite_market_token(&tracer, owed_market_idx)
+            )
+        });
+        let debt_token = debt_tokens.get(0).ok_or_else(|| eyre::eyre!("Debt token not found"))?;
+
+        let collateral_info = db.try_fetch_token_info(*collateral_token)?;
+        let debt_info = db.try_fetch_token_info(*debt_token)?;
+        let liquidated_collateral = log_data.solidHeldUpdate.deltaWei.value.to_scaled_rational(collateral_info.decimals);
+        let covered_debt = log_data.solidOwedUpdate.deltaWei.value.to_scaled_rational(debt_info.decimals);
 
         return Ok(NormalizedLiquidation {
             protocol: Protocol::Dolomite,
             trace_index: info.trace_idx,
-            pool: info.from_address,
+            pool: info.target_address,
             liquidator,
             debtor,
             collateral_asset: collateral_info,
@@ -92,3 +66,20 @@ action_impl!(
         })
     }
 );
+
+
+pub async fn query_dolomite_market_token<T: TracingProvider>(
+    tracer: &Arc<T>,
+    market_id: Uint<256, 4>,
+) -> Vec<Address> {
+    let mut result = vec![];
+    if let Ok(call_return) = make_call_request(
+        DolomiteLiquidator::getMarketCall { marketId: market_id },
+        tracer,
+        DOLOMITE_MARGIN_ADDRESS,
+        None,
+    ).await {
+        result.push(call_return._0.token);
+    }
+    result
+}

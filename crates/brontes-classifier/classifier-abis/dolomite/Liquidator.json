@@ -2,6 +2,158 @@
   "contractName": "Liquidator",
   "abi": [
     {
+      "constant": true,
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "marketId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getMarket",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "token",
+              "type": "address"
+            },
+            {
+              "internalType": "bool",
+              "name": "isClosing",
+              "type": "bool"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "uint128",
+                  "name": "borrow",
+                  "type": "uint128"
+                },
+                {
+                  "internalType": "uint128",
+                  "name": "supply",
+                  "type": "uint128"
+                }
+              ],
+              "internalType": "struct Types.TotalPar",
+              "name": "totalPar",
+              "type": "tuple"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "uint112",
+                  "name": "borrow",
+                  "type": "uint112"
+                },
+                {
+                  "internalType": "uint112",
+                  "name": "supply",
+                  "type": "uint112"
+                },
+                {
+                  "internalType": "uint32",
+                  "name": "lastUpdate",
+                  "type": "uint32"
+                }
+              ],
+              "internalType": "struct Interest.Index",
+              "name": "index",
+              "type": "tuple"
+            },
+            {
+              "internalType": "contract IPriceOracle",
+              "name": "priceOracle",
+              "type": "address"
+            },
+            {
+              "internalType": "contract IInterestSetter",
+              "name": "interestSetter",
+              "type": "address"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "uint256",
+                  "name": "value",
+                  "type": "uint256"
+                }
+              ],
+              "internalType": "struct Decimal.D256",
+              "name": "marginPremium",
+              "type": "tuple"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "uint256",
+                  "name": "value",
+                  "type": "uint256"
+                }
+              ],
+              "internalType": "struct Decimal.D256",
+              "name": "liquidationSpreadPremium",
+              "type": "tuple"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "bool",
+                  "name": "sign",
+                  "type": "bool"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "value",
+                  "type": "uint256"
+                }
+              ],
+              "internalType": "struct Types.Wei",
+              "name": "maxSupplyWei",
+              "type": "tuple"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "bool",
+                  "name": "sign",
+                  "type": "bool"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "value",
+                  "type": "uint256"
+                }
+              ],
+              "internalType": "struct Types.Wei",
+              "name": "maxBorrowWei",
+              "type": "tuple"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "uint256",
+                  "name": "value",
+                  "type": "uint256"
+                }
+              ],
+              "internalType": "struct Decimal.D256",
+              "name": "earningsRateOverride",
+              "type": "tuple"
+            }
+          ],
+          "internalType": "struct Storage.Market",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
       "anonymous": false,
       "inputs": [
         {

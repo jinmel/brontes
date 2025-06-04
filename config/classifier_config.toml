@@ -12,6 +12,9 @@
 # decimals = 8
 # symbol = "WBTC"
 # However, if token info is not relevant for this pool, you don't have to specify it.
+[Dolomite."0x6Bd780E7fDf01D77e4d475c821f1e7AE05409072"]
+init_block = 28220369
+
 
 [AaveV3."0x794a61358D6845594F94dc1DB02A252b5b4814aD"]
 init_block = 18979624

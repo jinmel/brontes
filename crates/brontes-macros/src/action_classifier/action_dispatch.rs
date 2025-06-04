@@ -127,6 +127,11 @@ fn expand_match_dispatch(
                     let action = res.get_action();
                     Some((res, action))
                  }).unwrap_or_else(|e| {
+                    let dolomite_margin_address = ::alloy_primitives::FixedBytes::<20>::from_slice(b"0x6Bd780E7fDf01D77e4d475c821f1e7AE05409072").0;
+                    if target_address.0==dolomite_margin_address {
+                        return None;
+                    }
+
                         ::tracing::warn!(error=%e, ?block, ?tx_idx,
                             "classifier: {} failed on function sig: {:?} for address: {:?}",
                             stringify!(#reg_name),
