@@ -115,7 +115,7 @@ impl Database {
             DatabaseCommands::TraceAtTip(cmd) => cmd.execute(brontes_db_path, ctx).await,
             #[cfg(all(feature = "local-clickhouse", feature = "arbitrum"))]
             DatabaseCommands::DiscoveryLogs(cmd) => cmd.execute(brontes_db_path, ctx).await,
-            #[cfg(feature = "local-clickhouse")]
+            #[cfg(all(feature = "local-clickhouse", feature = "arbitrum"))]
             DatabaseCommands::PendlePools(cmd) => cmd.execute().await,
         }
     }
