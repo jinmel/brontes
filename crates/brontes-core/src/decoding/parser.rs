@@ -8,7 +8,6 @@ use brontes_metrics::trace::types::{BlockStats, TraceParseErrorKind, Transaction
 #[cfg(feature = "dyn-decode")]
 use brontes_types::FastHashMap;
 use brontes_types::TimeboostTransactionReceipt;
-use futures::future::join_all;
 use reth_primitives::BlockHash;
 #[cfg(feature = "dyn-decode")]
 use reth_rpc_types::trace::parity::Action;
