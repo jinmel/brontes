@@ -219,26 +219,4 @@ mod tests {
             .unwrap();
     }
 
-    #[tokio::test]
-    async fn test_get_pendle_v2_sy_assets() {
-        // Test fetching SY assets from Arbitrum (chain ID 42161)
-        let classifier_utils = ClassifierTestUtils::new().await;
-        let tracer = classifier_utils.get_tracing_provider();
-        
-        match get_pendle_v2_sy_pools(&tracer).await {
-            Ok(sy_assets) => {
-                println!("Found {} SY assets on Arbitrum:", sy_assets.len());
-                for asset in sy_assets.iter().take(5) { // Print first 5 for brevity
-                    println!(
-                        "  Pool Address: {:?}, Tokens: {:?}",
-                        asset.pool_address, asset.tokens
-                    );
-                }
-            }
-            Err(e) => {
-                eprintln!("Error fetching SY assets: {}", e);
-                // Don't panic in test, just log the error
-            }
-        }
-    }
 }
