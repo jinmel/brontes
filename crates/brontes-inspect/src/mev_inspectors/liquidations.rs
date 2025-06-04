@@ -8,7 +8,7 @@ use brontes_types::{
     normalized_actions::{accounting::ActionAccounting, Action},
     ActionIter, BlockData, FastHashSet, MultiBlockData, ToFloatNearest, TreeSearchBuilder, TxInfo,
 };
-use itertools::multizip;
+use itertools::{multizip, Itertools};
 use malachite::{num::basic::traits::Zero, Rational};
 use reth_primitives::{b256, Address};
 
@@ -96,6 +96,8 @@ impl<DB: LibmdbxReader> LiquidationInspector<'_, DB> {
 
         let mev_addresses: FastHashSet<Address> = info.collect_address_set_for_accounting();
         let protocols = self.utils.get_related_protocols_liquidation(&actions);
+        let protocols_str = protocols.iter().map(|p| p.to_string()).collect_vec();
+
         let deltas = actions
             .into_iter()
             .chain(info.get_total_eth_value().iter().cloned().map(Action::from))
@@ -155,10 +157,17 @@ impl<DB: LibmdbxReader> LiquidationInspector<'_, DB> {
             liquidation_swaps:   swaps,
             liquidations:        liqs,
             gas_details:         info.gas_details,
+            profit_usd:          profit_usd.clone().to_float(),
+            protocols:           protocols_str,
         };
 
         self.utils.get_profit_metrics().inspect(|m| {
-            m.publish_profit_metrics(MevType::Liquidation, protocols, profit_usd.to_float())
+            m.publish_profit_metrics(
+                MevType::Liquidation,
+                protocols,
+                profit_usd.to_float(),
+                info.timeboosted,
+            )
         });
         Some(Bundle { header, data: BundleData::Liquidation(new_liquidation) })
     }

@@ -347,6 +347,7 @@ impl<DB: LibmdbxReader> SharedInspectorUtils<'_, DB> {
             mev_type,
             no_pricing_calculated,
             balance_deltas,
+            timeboosted: info.timeboosted,
         }
     }
 
@@ -401,6 +402,7 @@ impl<DB: LibmdbxReader> SharedInspectorUtils<'_, DB> {
             mev_type,
             no_pricing_calculated,
             balance_deltas,
+            timeboosted: info.timeboosted,
         }
     }
 
@@ -510,32 +512,38 @@ impl<DB: LibmdbxReader> SharedInspectorUtils<'_, DB> {
             .collect()
     }
 
-    pub fn get_related_protocols_liquidation(
-        &self,
-        actions: &[Action],
-    ) -> HashSet<Protocol> {
-        actions.into_iter().map(|action| action.get_protocol()).collect()
+    pub fn get_related_protocols_liquidation(&self, actions: &[Action]) -> HashSet<Protocol> {
+        actions
+            .iter()
+            .filter_map(|action| match action {
+                Action::Swap(swap) => Some(swap.protocol),
+                Action::SwapWithFee(swap) => Some(swap.protocol),
+                Action::Liquidation(liquidation) => Some(liquidation.protocol),
+                _ => None,
+            })
+            .collect()
     }
 
     pub fn get_related_protocols_atomic(
         &self,
-        trees: &Vec<Arc<BlockTree<Action>>>,
+        trees: &[Arc<BlockTree<Action>>],
     ) -> HashSet<Protocol> {
         trees
-            .into_iter()
+            .iter()
             .flat_map(|tree| &tree.tx_roots)
             .flat_map(|root| &root.data_store.0)
             .filter_map(|actions| actions.as_ref())
             .flat_map(|actions| actions.iter())
-            .map(|action| action.get_protocol())
+            .filter_map(|action| match action {
+                Action::Swap(swap) => Some(swap.protocol),
+                Action::SwapWithFee(swap) => Some(swap.protocol),
+                _ => None,
+            })
             .collect()
     }
 
-    pub fn get_related_protocols_cex_dex(
-        &self,
-        dex_swaps: &[NormalizedSwap],
-    ) -> HashSet<Protocol> {
-        dex_swaps.into_iter().map(|swap| swap.protocol).collect()
+    pub fn get_related_protocols_cex_dex(&self, dex_swaps: &[NormalizedSwap]) -> HashSet<Protocol> {
+        dex_swaps.iter().map(|swap| swap.protocol).collect()
     }
 
     pub fn fetch_address_name(&self, address: Address) -> Option<String> {

@@ -1,5 +1,7 @@
 use alloy_primitives::{hex, Address};
 
+pub const BLOCK_TIME_MILLIS: usize = 250;
+
 pub const USDT_ADDRESS_STRING: &str = "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9";
 // USD Stablecoins
 pub const USDT_ADDRESS: Address = Address::new(hex!("Fd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9"));
@@ -27,6 +29,8 @@ pub const VEUR_ADDRESS: Address = Address::new(hex!("4883C8f0529F37e40eBeA870F3C
 
 // Tokens
 pub const ETH_ADDRESS: Address = Address::new(hex!("EeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"));
+pub const ETH_ADDRESS_2: Address = Address::new(hex!("0000000000000000000000000000000000000000"));
+pub const ETH_ADDRESSES: [Address; 2] = [ETH_ADDRESS, ETH_ADDRESS_2];
 pub const WBTC_ADDRESS: Address = Address::new(hex!("2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f"));
 pub const WETH_ADDRESS: Address = Address::new(hex!("82aF49447D8a07e3bd95BD0d56f35241523fBab1"));
 pub const UNI_TOKEN: Address = Address::new(hex!("Fa7F8980b0f1E64A2062791cc3b0871572f1F7f0"));
@@ -120,6 +124,12 @@ pub const GOLD_STABLES_BY_ADDRESS: [Address; 0] = [];
 // Pendle V2 api url
 pub const PENDLE_V2_SY_ASSETS_API_URL: &str =
     "https://api-v2.pendle.finance/core/v3/42161/assets/all";
+
+pub const LIFI_CONTRACT_ADDRESS: Address =
+    Address::new(hex!("1231DEB6f5749EF6cE6943a275A1D3E7486F4EaE"));
+pub const ACROSS_CONTRACT_ADDRESS: Address =
+    Address::new(hex!("e35e9842fceaCA96570B734083f4a58e8F7C5f2A"));
+pub const BRIDGE_ADDRESSES: [Address; 2] = [LIFI_CONTRACT_ADDRESS, ACROSS_CONTRACT_ADDRESS];
 
 // DEX Factory Addresses
 pub const BALANCER_V2_VAULT_ADDRESS: Address =
