@@ -193,7 +193,7 @@ impl Serialize for BundleHeader {
             })
             .collect_vec();
         ser_struct.serialize_field("balance_deltas.token_deltas", &balance_deltas_token_deltas)?;
-
+        ser_struct.serialize_field("timeboosted", &self.timeboosted)?;
         ser_struct.end()
     }
 }
@@ -214,5 +214,6 @@ impl DbRow for BundleHeader {
         "balance_deltas.address",
         "balance_deltas.name",
         "balance_deltas.token_deltas",
+        "timeboosted",
     ];
 }
