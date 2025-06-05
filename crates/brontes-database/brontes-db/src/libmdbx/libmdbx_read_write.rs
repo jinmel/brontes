@@ -513,16 +513,8 @@ impl LibmdbxReader for LibmdbxReadWriter {
     }
 
     #[brontes_macros::metrics_call(ptr=metrics,scope, db_read, "try_fetch_token_info")]
-    fn try_fetch_token_info(
-        &self,
-        og_address: Address,
-    ) -> impl Future<Output = eyre::Result<TokenInfoWithAddress>> + Send {
-        async move {
-            let address = if constants::ETH_ADDRESSES.contains(&og_address) {
-                constants::WETH_ADDRESS
-            } else {
-                og_address
-            };
+    fn try_fetch_token_info(&self, og_address: Address) -> eyre::Result<TokenInfoWithAddress> {
+        let address = if constants::ETH_ADDRESSES.contains(&og_address) { constants::WETH_ADDRESS } else { og_address };
 
         self.db
             .view_db(|tx| match self.cache.token_info(true, |lock| lock.get(&address)) {
@@ -553,7 +545,6 @@ impl LibmdbxReader for LibmdbxReadWriter {
                     })
                     .ok_or_else(|| eyre::eyre!("entry for key {:?} in TokenDecimals", address)),
             })
-        }
     }
 
     #[brontes_macros::metrics_call(ptr=metrics,scope,db_read,"try_fetch_searcher_eoa_infos")]
