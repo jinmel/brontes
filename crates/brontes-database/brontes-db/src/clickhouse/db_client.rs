@@ -52,8 +52,7 @@ use brontes_types::db::clickhouse_serde::tx_trace::{
     ClickhouseRewardAction, ClickhouseSelfDestructAction,
 };
 use super::tx_traces::{
-    CallActionTuple, CallOutputTuple, CreateActionTuple, CreateOutputTuple,
-    DecodedTuple, LogTuple, MetaTuple, RewardTuple, SelfDestructTuple, TxTraceRow,
+    MetaTuple, TxTraceRow,
     TxTraceTuple,
 };
 
