@@ -48,7 +48,7 @@ use tracing::{debug, error, warn};
 
 use super::{
     cex_config::CexDownloadConfig, dbms::*, ClickhouseHandle, MOST_VOLUME_PAIR_EXCHANGE,
-    P2P_OBSERVATIONS, PRIVATE_FLOW, RAW_CEX_QUOTES, RAW_CEX_TRADES,
+    P2P_OBSERVATIONS, PRIVATE_FLOW, RAW_CEX_QUOTES, RAW_CEX_TRADES, TOKEN_INFO,
 };
 #[cfg(feature = "local-clickhouse")]
 use super::{BLOCK_TIMES, CEX_SYMBOLS};
@@ -429,6 +429,19 @@ impl Clickhouse {
             .run_with(self.query_optional_with_retry::<u64, _>(
                 P2P_OBSERVATIONS,
                 &(block_number, format!("{:?}", block_hash).to_lowercase()),
+            ))
+            .await?)
+    }
+
+    pub async fn get_token_info(
+        &self,
+        address: Address,
+    ) -> eyre::Result<Option<TokenInfoWithAddress>> {
+        Ok(self
+            .rate_limiter
+            .run_with(self.query_optional_with_retry::<TokenInfoWithAddress, _>(
+                TOKEN_INFO,
+                &(format!("{:?}", address).to_lowercase()),
             ))
             .await?)
     }

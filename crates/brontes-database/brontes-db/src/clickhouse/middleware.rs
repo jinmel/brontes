@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use alloy_primitives::Address;
+use futures::Future;
 use brontes_types::{
     db::{
         address_metadata::AddressMetadata,
@@ -359,8 +360,17 @@ impl<I: LibmdbxInit> LibmdbxReader for ClickhouseMiddleware<I> {
         self.inner.get_dex_quotes(block)
     }
 
-    fn try_fetch_token_info(&self, address: Address) -> eyre::Result<TokenInfoWithAddress> {
-        self.inner.try_fetch_token_info(address)
+    fn try_fetch_token_info(
+        &self,
+        address: Address,
+    ) -> impl Future<Output = eyre::Result<TokenInfoWithAddress>> + Send {
+        async move {
+            if let Some(info) = self.client.get_token_info(address).await? {
+                Ok(info)
+            } else {
+                self.inner.try_fetch_token_info(address).await
+            }
+        }
     }
 
     fn protocols_created_before(
@@ -681,8 +691,17 @@ impl<I: LibmdbxInit> LibmdbxReader for ReadOnlyMiddleware<I> {
         self.inner.get_dex_quotes(block)
     }
 
-    fn try_fetch_token_info(&self, address: Address) -> eyre::Result<TokenInfoWithAddress> {
-        self.inner.try_fetch_token_info(address)
+    fn try_fetch_token_info(
+        &self,
+        address: Address,
+    ) -> impl Future<Output = eyre::Result<TokenInfoWithAddress>> + Send {
+        async move {
+            if let Some(info) = self.client.get_token_info(address).await? {
+                Ok(info)
+            } else {
+                self.inner.try_fetch_token_info(address).await
+            }
+        }
     }
 
     fn protocols_created_before(
