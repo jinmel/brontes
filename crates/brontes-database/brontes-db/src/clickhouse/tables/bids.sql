@@ -7,7 +7,6 @@ CREATE TABLE IF NOT EXISTS timeboost.bids (
     round UInt64,
     amount String,
     signature String
-) ENGINE = MergeTree()
-PARTITION BY chain_id
-PRIMARY KEY (timestamp)
-ORDER BY (timestamp)
+) ENGINE = ReplacingMergeTree()
+PARTITION BY (chain_id, toStartOfDay(timestamp))
+ORDER BY (chain_id, round, bidder)
