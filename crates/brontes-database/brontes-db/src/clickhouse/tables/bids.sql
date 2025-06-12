@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS timeboost.bids (
     express_lane_controller String,
     auction_contract_address String,
     round UInt64,
-    amount String,
+    amount UInt64,
     signature String
 ) ENGINE = ReplacingMergeTree()
 PARTITION BY (chain_id, toStartOfDay(timestamp))
