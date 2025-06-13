@@ -11,6 +11,7 @@ use crate::{
     cli::{get_tracing_provider, load_clickhouse, load_libmdbx, static_object},
     runner::CliContext,
 };
+use brontes_types::chain_config::ChainConfig;
 
 /// downloads a range of data from clickhouse
 #[derive(Debug, Parser)]
@@ -27,6 +28,10 @@ pub struct ClickhouseDownload {
     /// Clear the table before downloading
     #[arg(short, long, default_value = "false")]
     pub clear_table: bool,
+
+    /// Chain Id or Name
+    #[arg(long, short, default_value = "arbitrum")]
+    pub chain: String,
 }
 
 impl ClickhouseDownload {
@@ -49,8 +54,9 @@ impl ClickhouseDownload {
     async fn run(self, brontes_db_path: String, ctx: CliContext) -> eyre::Result<()> {
         let libmdbx = static_object(load_libmdbx(&ctx.task_executor, brontes_db_path.clone())?);
         debug!(target: "brontes::db::clickhouse-download", "made libmdbx");
+        let chain_config = ChainConfig::new(self.chain.to_owned())?;
         let cex_config = CexDownloadConfig::default();
-        let clickhouse = static_object(load_clickhouse(cex_config, None).await?);
+        let clickhouse = static_object(load_clickhouse(cex_config, chain_config, None).await?);
         debug!(target: "brontes::db::clickhouse-download", "made clickhouse");
 
         let tracer = Arc::new(get_tracing_provider(

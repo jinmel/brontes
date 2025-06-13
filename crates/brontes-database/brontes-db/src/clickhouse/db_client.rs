@@ -69,6 +69,7 @@ use crate::{
     libmdbx::{determine_eth_prices, tables::CexPriceData, types::LibmdbxData},
     CompressedTable,
 };
+use brontes_types::chain_config::ChainConfig;
 
 const SECONDS_TO_US: f64 = 1_000_000.0;
 const MAX_MARKOUT_TIME: f64 = 300.0;
@@ -80,12 +81,14 @@ pub struct Clickhouse {
     pub client:              ClickhouseClient<BrontesClickhouseTables>,
     pub rate_limiter:        RateLimiter,
     pub cex_download_config: CexDownloadConfig,
+    pub chain_config:        ChainConfig,
     pub buffered_insert_tx:  Option<UnboundedSender<Vec<BrontesClickhouseData>>>,
 }
 
 impl Clickhouse {
     pub async fn new(
         config: ClickhouseConfig,
+        chain_config: ChainConfig,
         cex_download_config: CexDownloadConfig,
         buffered_insert_tx: Option<UnboundedSender<Vec<BrontesClickhouseData>>>,
         tip: bool,
@@ -95,6 +98,7 @@ impl Clickhouse {
         let mut this = Self {
             client,
             cex_download_config,
+            chain_config,
             buffered_insert_tx,
             tip,
             run_id: 0,
@@ -114,7 +118,7 @@ impl Clickhouse {
     }
 
     pub async fn new_default(run_id: Option<u64>) -> Self {
-        Clickhouse::new(clickhouse_config(), Default::default(), Default::default(), false, run_id)
+        Clickhouse::new(clickhouse_config(), Default::default(),Default::default(), Default::default(), false, run_id)
             .await
     }
 

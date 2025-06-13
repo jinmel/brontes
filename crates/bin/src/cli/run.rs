@@ -20,6 +20,7 @@ use crate::{
     runner::CliContext,
     BrontesRunConfig, MevProcessor, RangeType,
 };
+use brontes_types::chain_config::ChainConfig;
 
 const SECONDS_TO_US_FLOAT: f64 = 1_000_000.0;
 
@@ -105,6 +106,10 @@ pub struct RunArgs {
     #[arg(long, short)]
     pub run_id:               Option<u64>,
 
+    /// Chain Id or Name
+    #[arg(long, short, default_value = "arbitrum")]
+    pub chain: String,
+
     /// shows a cool display at startup
     #[arg(long, short, default_value_t = false)]
     pub waterfall: bool,
@@ -117,6 +122,8 @@ impl RunArgs {
         if self.waterfall {
             rain();
         }
+
+        let chain_config = ChainConfig::new(self.chain.to_owned())?;
 
         let snapshot_mode = !cfg!(feature = "local-clickhouse");
         tracing::info!(%snapshot_mode);
@@ -144,7 +151,7 @@ impl RunArgs {
 
         tracing::info!(target: "brontes", "starting database initialization at: '{}'", brontes_db_path);
         let libmdbx =
-            static_object(load_database(&task_executor, brontes_db_path, hr, self.run_id).await?);
+            static_object(load_database(&task_executor, chain_config.clone(), brontes_db_path, hr, self.run_id).await?);
 
         let tip = static_object(load_tip_database(libmdbx)?);
         tracing::info!(target: "brontes", "initialized libmdbx database");
@@ -158,7 +165,7 @@ impl RunArgs {
         );
 
         let range_type = self.get_range_type()?;
-        let clickhouse = static_object(load_clickhouse(cex_download_config, self.run_id).await?);
+        let clickhouse = static_object(load_clickhouse(cex_download_config, chain_config, self.run_id).await?);
         tracing::info!(target: "brontes", "Databases initialized");
 
         let only_cex_dex = self

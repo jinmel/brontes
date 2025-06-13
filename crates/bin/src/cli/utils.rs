@@ -19,7 +19,7 @@ use brontes_database::{clickhouse::cex_config::CexDownloadConfig, libmdbx::Libmd
 use brontes_inspect::{Inspector, Inspectors};
 use brontes_metrics::inspectors::{OutlierMetrics, ProfitMetrics};
 #[cfg(feature = "local-clickhouse")]
-use brontes_types::UnboundedYapperReceiver;
+use brontes_types::{chain_config::ChainConfig, UnboundedYapperReceiver};
 use brontes_types::{
     db::{
         cex::{trades::CexDexTradeConfig, CexExchange},
@@ -55,6 +55,7 @@ pub fn load_tip_database(cur: &LibmdbxReadWriter) -> eyre::Result<LibmdbxReadWri
 #[cfg(feature = "local-clickhouse")]
 pub async fn load_database(
     executor: &BrontesTaskExecutor,
+    chain_config: ChainConfig,
     db_endpoint: String,
     hr: Option<HeartRateMonitor>,
     run_id: Option<u64>,
@@ -66,6 +67,7 @@ pub async fn load_database(
     spawn_db_writer_thread(executor, rx, hr);
     tracing::info!("Loaded database from {}", &db_endpoint);
     let mut clickhouse = Clickhouse::new_default(run_id).await;
+    clickhouse.chain_config = chain_config;
     tracing::info!("Created clickhouse client");
     clickhouse.buffered_insert_tx = Some(tx);
     tracing::info!("Set buffered insert tx");
@@ -106,11 +108,12 @@ pub fn load_libmdbx(
 #[cfg(feature = "local-clickhouse")]
 pub async fn load_clickhouse(
     cex_download_config: CexDownloadConfig,
+    chain_config: ChainConfig,
     run_id: Option<u64>,
 ) -> eyre::Result<Clickhouse> {
     let mut clickhouse = Clickhouse::new_default(run_id).await;
     clickhouse.cex_download_config = cex_download_config;
-
+    clickhouse.chain_config = chain_config;
     Ok(clickhouse)
 }
 

@@ -22,6 +22,7 @@ use futures::StreamExt;
 use governor::{Quota, RateLimiter};
 use indicatif::{ProgressBar, ProgressDrawTarget, ProgressState, ProgressStyle};
 use itertools::Itertools;
+use brontes_types::chain_config::ChainConfig;
 
 use crate::{
     cli::{get_env_vars, get_tracing_provider_rpc, load_database, static_object},
@@ -82,6 +83,10 @@ pub struct DiscoveryLogsFill {
     /// Block range per request (defaults to alchemy block range limit = 10,000)
     #[arg(long, short = 'b', default_value_t = 10_000)]
     pub batch_size:  usize,
+
+    /// Chain Id or Name
+    #[arg(long, short, default_value = "arbitrum")]
+    pub chain: String,
 
     /// Rate limit for RPC requests per second
     #[arg(long, short = 'r')]
@@ -166,13 +171,14 @@ impl DiscoveryLogsFill {
     }
 
     pub async fn execute(self, brontes_db_path: String, ctx: CliContext) -> eyre::Result<()> {
+        let chain_config = ChainConfig::new(self.chain.to_owned())?;
         let db_path = get_env_vars()?;
 
         let max_tasks = self.max_tasks.unwrap_or(num_cpus::get_physical());
         init_thread_pools(max_tasks);
 
         let libmdbx =
-            static_object(load_database(&ctx.task_executor, brontes_db_path, None, None).await?);
+            static_object(load_database(&ctx.task_executor, chain_config, brontes_db_path, None, None).await?);
 
         let limiter = self.rate_limit.map(|rate_limit| {
             Arc::new(RateLimiter::direct(Quota::per_second(NonZeroU32::new(rate_limit).unwrap())))

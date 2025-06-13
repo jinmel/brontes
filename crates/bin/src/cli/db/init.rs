@@ -1,7 +1,7 @@
 use std::{path::Path, sync::Arc};
 
 use brontes_database::{libmdbx::LibmdbxInit, Tables};
-use brontes_types::{db::cex::CexExchange, init_thread_pools};
+use brontes_types::{chain_config::ChainConfig, db::cex::CexExchange, init_thread_pools};
 use clap::Parser;
 use indicatif::MultiProgress;
 use itertools::Itertools;
@@ -61,18 +61,22 @@ pub struct Init {
     /// false it will run the dex pricing locally using raw on-chain data
     #[arg(long, short, default_value = "false")]
     pub download_dex_pricing:      bool,
+
+    /// Chain Id or Name
+    #[arg(long, short, default_value = "arbitrum")]
+    pub chain: String,
 }
 
 impl Init {
     pub async fn execute(self, brontes_db_path: String, ctx: CliContext) -> eyre::Result<()> {
         let db_path = get_env_vars()?;
-
+        let chain_config = ChainConfig::new(self.chain.to_owned())?;
         init_thread_pools(10);
         let task_executor = ctx.task_executor;
 
         let libmdbx =
-            static_object(load_database(&task_executor, brontes_db_path, None, None).await?);
-        let clickhouse = static_object(load_clickhouse(Default::default(), None).await?);
+            static_object(load_database(&task_executor, chain_config.clone(), brontes_db_path, None, None).await?);
+        let clickhouse = static_object(load_clickhouse(Default::default(), chain_config, None).await?);
 
         let tracer = Arc::new(get_tracing_provider(Path::new(&db_path), 10, task_executor.clone()));
 

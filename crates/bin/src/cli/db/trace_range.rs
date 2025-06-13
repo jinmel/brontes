@@ -3,7 +3,7 @@ use std::path::Path;
 use brontes_core::decoding::Parser as DParser;
 use brontes_metrics::ParserMetricsListener;
 use brontes_types::{
-    init_thread_pools, unordered_buffer_map::BrontesStreamExt, UnboundedYapperReceiver,
+    chain_config::ChainConfig, init_thread_pools, unordered_buffer_map::BrontesStreamExt, UnboundedYapperReceiver
 };
 use clap::Parser;
 use futures::StreamExt;
@@ -22,12 +22,16 @@ pub struct TraceArgs {
     /// block to trace to
     #[arg(long, short)]
     pub end_block:   u64,
+
+    /// Chain Id or Name
+    #[arg(long, short, default_value = "arbitrum")]
+    pub chain: String,
 }
 
 impl TraceArgs {
     pub async fn execute(self, brontes_db_path: String, ctx: CliContext) -> eyre::Result<()> {
         let db_path = get_env_vars()?;
-
+        let chain_config = ChainConfig::new(self.chain.to_owned())?;
         let max_tasks = determine_max_tasks(None) * 2;
         init_thread_pools(max_tasks as usize);
         let (metrics_tx, metrics_rx) = unbounded_channel();
@@ -42,7 +46,7 @@ impl TraceArgs {
             .spawn_critical("metrics", metrics_listener);
 
         let libmdbx =
-            static_object(load_database(&ctx.task_executor, brontes_db_path, None, None).await?);
+            static_object(load_database(&ctx.task_executor, chain_config, brontes_db_path, None, None).await?);
 
         let tracer =
             get_tracing_provider(Path::new(&db_path), max_tasks, ctx.task_executor.clone());
