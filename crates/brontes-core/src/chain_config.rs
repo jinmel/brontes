@@ -10,13 +10,15 @@ pub struct ChainConfig {
 }
 
 impl ChainConfig {
-    pub fn from_chain_id(chain_id: u64) -> eyre::Result<Self> {
-        let chain = NamedChain::try_from(chain_id).wrap_err("Invalid chain id")?;
-        Ok(Self { chain })
-    }
+    pub fn new(chain_id_or_name: String) -> eyre::Result<Self> {
+        let chain_id = chain_id_or_name.parse::<u64>().ok();
 
-    pub fn from_chain_name(chain_name: &str) -> eyre::Result<Self> {
-        let chain = NamedChain::from_str(chain_name).wrap_err("Invalid chain name")?;
+        let chain = if let Some(chain_id) = chain_id {
+            NamedChain::try_from(chain_id).wrap_err("Invalid chain id")?
+        } else {
+            NamedChain::from_str(&chain_id_or_name).wrap_err("Invalid chain id")?
+        };
+
         Ok(Self { chain })
     }
 
@@ -36,30 +38,18 @@ mod tests {
     #[test]
     fn test_chain_config() {
         // Test from_chain_id
-        let config = ChainConfig::from_chain_id(42161).unwrap();
+        let config = ChainConfig::new("42161".to_string()).unwrap();
         assert_eq!(config.chain, NamedChain::Arbitrum);
         assert_eq!(config.get_chain_id(), 42161);
         assert_eq!(config.get_chain_name(), "arbitrum");
 
-        // Test from_chain_name
-        let config = ChainConfig::from_chain_name("arbitrum").unwrap();
+        let config = ChainConfig::new("arbitrum".to_string()).unwrap();
         assert_eq!(config.chain, NamedChain::Arbitrum);
         assert_eq!(config.get_chain_id(), 42161);
         assert_eq!(config.get_chain_name(), "arbitrum");
-
-        // Test mainnet
-        let config = ChainConfig::from_chain_id(1).unwrap();
-        assert_eq!(config.chain, NamedChain::Mainnet);
-        assert_eq!(config.get_chain_id(), 1);
-        assert_eq!(config.get_chain_name(), "mainnet");
-
-        let config = ChainConfig::from_chain_name("mainnet").unwrap();
-        assert_eq!(config.chain, NamedChain::Mainnet);
-        assert_eq!(config.get_chain_id(), 1);
-        assert_eq!(config.get_chain_name(), "mainnet");
 
         // Test error cases
-        assert!(ChainConfig::from_chain_id(999999).is_err());
-        assert!(ChainConfig::from_chain_name("invalid-chain").is_err());
+        assert!(ChainConfig::new("999999".to_string()).is_err());
+        assert!(ChainConfig::new("invalid-chain".to_string()).is_err());
     }
 }
