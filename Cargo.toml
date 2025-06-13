@@ -89,7 +89,8 @@ alloy-rlp = { version = "0.3.4" }
 alloy-rlp-derive = { version = "0.3.4" }
 alloy-primitives = { version = "0.7.0", features = ["rlp"] }
 alloy-json-abi = "0.7.0"
-alloy-dyn-abi = "0.7.0 "
+alloy-dyn-abi = "0.7.0"
+alloy-chains = "0.1.19"
 
 # Alloy core
 alloy-provider = { git = "https://github.com/alloy-rs/alloy.git", rev = "39b8695", features = [

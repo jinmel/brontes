@@ -49,6 +49,7 @@ alloy-transport-http.workspace = true
 alloy-network.workspace = true
 alloy-consensus.workspace = true
 alloy-rpc-types = { workspace = true, features = ["jsonrpsee-types"] }
+alloy-chains.workspace = true
 
 # Serde 
 serde.workspace = true
