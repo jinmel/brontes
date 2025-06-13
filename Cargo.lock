@@ -1650,7 +1650,6 @@ dependencies = [
 name = "brontes-core"
 version = "0.1.0"
 dependencies = [
- "alloy-chains",
  "alloy-consensus",
  "alloy-dyn-abi",
  "alloy-json-abi",
@@ -1991,6 +1990,7 @@ name = "brontes-types"
 version = "0.1.0"
 dependencies = [
  "ahash",
+ "alloy-chains",
  "alloy-consensus",
  "alloy-dyn-abi",
  "alloy-json-abi",
