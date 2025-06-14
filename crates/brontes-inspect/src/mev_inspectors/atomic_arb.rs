@@ -275,11 +275,7 @@ impl<DB: LibmdbxReader> AtomicArbInspector<'_, DB> {
                 m.publish_abnormal_profit(MevType::AtomicArb, &protocols, profit_usd);
             }
 
-            m.publish_profit_metrics(
-                MevType::AtomicArb,
-                &protocols,
-                profit_usd,
-            );
+            m.publish_profit_metrics(MevType::AtomicArb, &protocols, profit_usd);
 
             m.publish_profit_metrics_atomic_arb(
                 MevType::AtomicArb,
@@ -289,11 +285,7 @@ impl<DB: LibmdbxReader> AtomicArbInspector<'_, DB> {
             );
 
             if info.timeboosted {
-                m.publish_profit_metrics_timeboosted(
-                    MevType::AtomicArb,
-                    &protocols,
-                    profit_usd,
-                );
+                m.publish_profit_metrics_timeboosted(MevType::AtomicArb, &protocols, profit_usd);
 
                 m.publish_profit_metrics_timeboosted_atomic_arb(
                     MevType::AtomicArb,
