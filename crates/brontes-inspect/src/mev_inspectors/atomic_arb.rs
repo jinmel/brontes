@@ -269,19 +269,11 @@ impl<DB: LibmdbxReader> AtomicArbInspector<'_, DB> {
             },
         );
 
-        // skip reporting for long tail and cross pair atomic arbs
-        if profit_usd.abs() > 100.0 {
-            tracing::warn!(?header.tx_hash, ?profit_usd, "abnormal profit for arb type: {}", possible_arb_type);
-            self.utils.get_profit_metrics().inspect(|m| {
-                m.publish_abnormal_profit(
-                    MevType::AtomicArb,
-                    &protocols,
-                    profit_usd,
-                );
-            });
-        }
-
         self.utils.get_profit_metrics().inspect(|m| {
+            if profit_usd.abs() > 100.0 {
+                m.publish_abnormal_profit(MevType::AtomicArb, &protocols, profit_usd);
+            }
+
             m.publish_profit_metrics(
                 MevType::AtomicArb,
                 &protocols,
