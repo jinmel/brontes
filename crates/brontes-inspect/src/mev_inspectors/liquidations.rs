@@ -84,17 +84,34 @@ impl<DB: LibmdbxReader> LiquidationInspector<'_, DB> {
         metadata: Arc<Metadata>,
         actions: Vec<Action>,
     ) -> Option<Bundle> {
-        let (swaps, liqs): (Vec<_>, Vec<_>) = actions
-            .iter()
-            .cloned()
-            .action_split((Action::try_swaps_merged, Action::try_liquidation));
+        let (swaps, liqs, transfers, eth_transfers): (Vec<_>, Vec<_>, Vec<_>, Vec<_>) =
+            actions.iter().cloned().action_split((
+                Action::try_swaps_merged,
+                Action::try_liquidation,
+                Action::try_transfer,
+                Action::try_eth_transfer,
+            ));
 
         if liqs.is_empty() {
             tracing::debug!("no liquidation events");
             return None
         }
 
-        let mev_addresses: FastHashSet<Address> = info.collect_address_set_for_accounting();
+        let mut mev_addresses: FastHashSet<Address> = info.collect_address_set_for_accounting();
+        let recipient = match (transfers.last(), eth_transfers.last()) {
+            (Some(last_transfer), Some(last_eth_transfer)) => {
+                if last_transfer.trace_index > last_eth_transfer.trace_index {
+                    last_transfer.to
+                } else {
+                    last_eth_transfer.to
+                }
+            }
+            (Some(last_transfer), None) => last_transfer.to,
+            (None, Some(last_eth_transfer)) => last_eth_transfer.to,
+            (None, None) => info.eoa,
+        };
+
+        mev_addresses.insert(recipient);
         let protocols = self.utils.get_related_protocols_liquidation(&actions);
         let protocols_str = protocols.iter().map(|p| p.to_string()).collect_vec();
 
@@ -161,14 +178,22 @@ impl<DB: LibmdbxReader> LiquidationInspector<'_, DB> {
             protocols:           protocols_str,
         };
 
+        let profit_usd = profit_usd.clone().to_float();
+
         self.utils.get_profit_metrics().inspect(|m| {
             m.publish_profit_metrics(
                 MevType::Liquidation,
-                protocols,
-                profit_usd.to_float(),
-                None,
-                info.timeboosted,
-            )
+                &protocols,
+                profit_usd,
+            );
+
+            if info.timeboosted {
+                m.publish_profit_metrics_timeboosted(
+                    MevType::Liquidation,
+                    &protocols,
+                    profit_usd,
+                );
+            }
         });
         Some(Bundle { header, data: BundleData::Liquidation(new_liquidation) })
     }
