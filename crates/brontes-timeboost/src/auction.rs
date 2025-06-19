@@ -36,18 +36,27 @@ pub struct ExpressLaneAuctionInfo {
     pub round_end_timestamp: u64,
 }
 
-pub struct ExpressLaneAuction<T: TracingProvider> {
+pub struct ExpressLaneMetaData {
+    pub round: u64,
+    pub controller: Address,
+    pub amount: U256,
+    pub round_start_timestamp: u64,
+    pub round_end_timestamp: u64,
+    pub block_number: u64,
+}
+
+pub struct ExpressLaneAuctionProvider<T: TracingProvider> {
     provider:         Arc<T>,
     contract_address: Address,
 }
 
-impl<T: TracingProvider> Clone for ExpressLaneAuction<T> {
+impl<T: TracingProvider> Clone for ExpressLaneAuctionProvider<T> {
     fn clone(&self) -> Self {
         Self { provider: self.provider.clone(), contract_address: self.contract_address }
     }
 }
 
-impl<T: TracingProvider> ExpressLaneAuction<T> {
+impl<T: TracingProvider> ExpressLaneAuctionProvider<T> {
     pub fn new(provider: Arc<T>) -> Self {
         Self { provider, contract_address: ONE_EXPRESS_LANE_AUCTION_ADDRESS }
     }

@@ -22,6 +22,8 @@ use crate::{
     serde_utils::{option_addresss, u256, vec_txhash},
     FastHashSet,
 };
+use brontes_timeboost::auction::ExpressLaneMetaData;
+
 #[allow(unused_imports)]
 use crate::{db::cex::CexExchange, normalized_actions::NormalizedSwap};
 
@@ -85,6 +87,7 @@ pub struct Metadata {
     pub dex_quotes:     Option<DexQuotes>,
     pub builder_info:   Option<BuilderInfo>,
     pub cex_trades:     Option<CexTradeMap>,
+    pub express_lane_auction:   Option<ExpressLaneMetaData>,
 }
 
 impl Metadata {
@@ -195,7 +198,8 @@ impl BlockMetadata {
         dex_quotes: Option<DexQuotes>,
         builder_info: Option<BuilderInfo>,
         cex_trades: Option<CexTradeMap>,
+        express_lane_auction: Option<ExpressLaneMetaData>,
     ) -> Metadata {
-        Metadata { block_metadata: self, cex_quotes, dex_quotes, builder_info, cex_trades }
+        Metadata { block_metadata: self, cex_quotes, dex_quotes, builder_info, cex_trades, express_lane_auction }
     }
 }

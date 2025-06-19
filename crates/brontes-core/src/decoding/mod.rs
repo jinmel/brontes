@@ -3,7 +3,7 @@ use std::{collections::HashMap, pin::Pin, sync::Arc};
 use alloy_primitives::{Address, FixedBytes};
 use alloy_rpc_types::Log;
 use brontes_database::libmdbx::{DBWriter, LibmdbxReader};
-use brontes_timeboost::auction::{ExpressLaneAuction, ExpressLaneAuctionUpdate};
+use brontes_timeboost::auction::{ExpressLaneAuctionProvider, ExpressLaneAuctionUpdate};
 pub use brontes_types::traits::TracingProvider;
 use brontes_types::{structured_trace::TxTrace, Protocol};
 use futures::Future;
@@ -42,7 +42,7 @@ pub type TraceClickhouseFuture = Pin<Box<dyn Future<Output = ()> + Send + 'stati
 
 pub struct Parser<T: TracingProvider, DB: LibmdbxReader + DBWriter> {
     parser:               TraceParser<T, DB>,
-    express_lane_auction: ExpressLaneAuction<T>,
+    express_lane_auction: ExpressLaneAuctionProvider<T>,
 }
 
 pub struct LogParser<T: TracingProvider, DB: LibmdbxReader + DBWriter> {
@@ -57,7 +57,7 @@ impl<T: TracingProvider, DB: LibmdbxReader + DBWriter> Parser<T, DB> {
     ) -> Self {
         let tracing = Arc::new(tracing);
         let parser = TraceParser::new(libmdbx, tracing.clone(), Arc::new(metrics_tx)).await;
-        let express_lane_auction = ExpressLaneAuction::new(tracing.clone());
+        let express_lane_auction = ExpressLaneAuctionProvider::new(tracing.clone());
         Self { parser, express_lane_auction }
     }
 
