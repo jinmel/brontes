@@ -12,7 +12,7 @@ use brontes_classifier::Classifier;
 use brontes_core::decoding::Parser;
 use brontes_database::clickhouse::ClickhouseHandle;
 use brontes_metrics::range::GlobalRangeMetrics;
-use brontes_timeboost::auction::ExpressLaneAuctionUpdate;
+use brontes_timeboost::auction::ExpressLaneAuctionLog;
 use brontes_types::{
     db::traits::{DBWriter, LibmdbxReader},
     normalized_actions::Action,
@@ -32,7 +32,7 @@ type CollectionFut<'a> =
 type ExecutionFut<'a> =
     Pin<Box<dyn Future<Output = Option<(BlockHash, Vec<TxTrace>, Header)>> + Send + 'a>>;
 type ExpressLaneAuctionFut<'a> =
-    Pin<Box<dyn Future<Output = eyre::Result<Vec<ExpressLaneAuctionUpdate>>> + Send + 'a>>;
+    Pin<Box<dyn Future<Output = eyre::Result<Vec<ExpressLaneAuctionLog>>> + Send + 'a>>;
 
 pub struct StateCollector<T: TracingProvider, DB: LibmdbxReader + DBWriter, CH: ClickhouseHandle> {
     mark_as_finished: Arc<AtomicBool>,
@@ -105,16 +105,16 @@ impl<T: TracingProvider, DB: LibmdbxReader + DBWriter, CH: ClickhouseHandle>
         let res = if let Some(metrics) = metrics {
             let is_auction_resolved_round = express_lane_updates
                 .iter()
-                .any(|update| matches!(update, ExpressLaneAuctionUpdate::AuctionResolved(_)));
+                .any(|update| matches!(update, ExpressLaneAuctionLog::AuctionResolved(_)));
 
             for update in &express_lane_updates {
                 match update {
-                    ExpressLaneAuctionUpdate::SetExpressLaneController(info) => {
+                    ExpressLaneAuctionLog::SetExpressLaneController(info) => {
                         if is_auction_resolved_round {
                             metrics.add_transfer_controller(info.new_express_lane_controller);
                         }
                     }
-                    ExpressLaneAuctionUpdate::AuctionResolved(info) => {
+                    ExpressLaneAuctionLog::AuctionResolved(info) => {
                         // TODO(jinmel): check the biddingToken address and format the right amount
                         // by correct decimals. Right now the biddingToken
                         // is WETH, so we use format_ether to convert wei to ether.

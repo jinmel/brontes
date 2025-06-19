@@ -3,7 +3,7 @@ use std::{collections::HashMap, pin::Pin, sync::Arc};
 use alloy_primitives::{Address, FixedBytes};
 use alloy_rpc_types::Log;
 use brontes_database::libmdbx::{DBWriter, LibmdbxReader};
-use brontes_timeboost::auction::{ExpressLaneAuctionProvider, ExpressLaneAuctionUpdate};
+use brontes_timeboost::auction::{ExpressLaneAuctionProvider, ExpressLaneAuctionLog};
 pub use brontes_types::traits::TracingProvider;
 use brontes_types::{structured_trace::TxTrace, Protocol};
 use futures::Future;
@@ -36,7 +36,7 @@ pub type ParserFuture =
     Pin<Box<dyn Future<Output = Option<(BlockHash, Vec<TxTrace>, Header)>> + Send + 'static>>;
 
 pub type ExpressLaneAuctionFuture =
-    Pin<Box<dyn Future<Output = eyre::Result<Vec<ExpressLaneAuctionUpdate>>> + Send + 'static>>;
+    Pin<Box<dyn Future<Output = eyre::Result<Vec<ExpressLaneAuctionLog>>> + Send + 'static>>;
 
 pub type TraceClickhouseFuture = Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
 

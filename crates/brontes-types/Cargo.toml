@@ -5,7 +5,6 @@ edition = "2021"
 
 
 [dependencies]
-brontes-timeboost.workspace = true
 
 # reth 
 reth-rpc-types.workspace = true

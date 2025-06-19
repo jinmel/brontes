@@ -52,6 +52,7 @@ pub struct BundleHeader {
     pub no_pricing_calculated: bool,
     pub balance_deltas:        Vec<TransactionAccounting>,
     pub timeboosted:           bool,
+    pub express_lane_controller: Option<Address>,
 }
 
 #[serde_as]
@@ -194,6 +195,7 @@ impl Serialize for BundleHeader {
             .collect_vec();
         ser_struct.serialize_field("balance_deltas.token_deltas", &balance_deltas_token_deltas)?;
         ser_struct.serialize_field("timeboosted", &self.timeboosted)?;
+        ser_struct.serialize_field("express_lane_controller", &self.express_lane_controller.map(|a| format!("{:?}", a)))?;
         ser_struct.end()
     }
 }
@@ -215,5 +217,6 @@ impl DbRow for BundleHeader {
         "balance_deltas.name",
         "balance_deltas.token_deltas",
         "timeboosted",
+        "express_lane_controller",
     ];
 }

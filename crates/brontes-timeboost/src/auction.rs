@@ -4,20 +4,27 @@ use alloy_primitives::{hex, Address, U256};
 use alloy_rpc_types::Filter;
 use alloy_sol_macro::sol;
 use alloy_sol_types::SolEvent;
-use brontes_types::traits::TracingProvider;
+use brontes_types::{express_lane::ExpressLaneMetaData, traits::TracingProvider};
+use std::cmp::Ordering;
 
 sol!(IExpressLaneAuction, "./src/contracts/IExpressLaneAuction.json");
 
-pub enum ExpressLaneAuctionUpdate {
-    SetExpressLaneController(ExpressLaneControllerInfo),
-    AuctionResolved(ExpressLaneAuctionInfo),
+#[derive(Debug)]
+pub enum ExpressLaneAuctionLog {
+    SetExpressLaneController(ExpressLaneController),
+    AuctionResolved(ExpressLaneAuction),
 }
 
 // TODO(jinmel): Parametrize this address
 pub const ONE_EXPRESS_LANE_AUCTION_ADDRESS: Address =
     Address::new(hex!("5fcb496a31b7AE91e7c9078Ec662bd7A55cd3079"));
 
-pub struct ExpressLaneControllerInfo {
+// 250ms block time, 1min per round
+pub const BLOCKS_PER_ROUND: u64 = 4 * 60;
+
+#[derive(Debug)]
+pub struct ExpressLaneController {
+    pub block_number: u64,
     pub round: u64,
     pub new_express_lane_controller: Address,
     pub previous_express_lane_controller: Address,
@@ -26,7 +33,9 @@ pub struct ExpressLaneControllerInfo {
     pub end_timestamp: u64,
 }
 
-pub struct ExpressLaneAuctionInfo {
+#[derive(Debug)]
+pub struct ExpressLaneAuction {
+    pub block_number: u64,
     pub round: u64,
     pub first_price_bidder: Address,
     pub first_price_express_lane_controller: Address,
@@ -36,35 +45,81 @@ pub struct ExpressLaneAuctionInfo {
     pub round_end_timestamp: u64,
 }
 
-pub struct ExpressLaneMetaData {
-    pub round: u64,
-    pub controller: Address,
-    pub amount: U256,
-    pub round_start_timestamp: u64,
-    pub round_end_timestamp: u64,
-    pub block_number: u64,
-}
-
+#[derive(Debug)]
 pub struct ExpressLaneAuctionProvider<T: TracingProvider> {
-    provider:         Arc<T>,
+    provider: Arc<T>,
     contract_address: Address,
 }
 
 impl<T: TracingProvider> Clone for ExpressLaneAuctionProvider<T> {
     fn clone(&self) -> Self {
-        Self { provider: self.provider.clone(), contract_address: self.contract_address }
+        Self {
+            provider: self.provider.clone(),
+            contract_address: self.contract_address,
+        }
     }
 }
 
 impl<T: TracingProvider> ExpressLaneAuctionProvider<T> {
     pub fn new(provider: Arc<T>) -> Self {
-        Self { provider, contract_address: ONE_EXPRESS_LANE_AUCTION_ADDRESS }
+        Self {
+            provider,
+            contract_address: ONE_EXPRESS_LANE_AUCTION_ADDRESS,
+        }
+    }
+
+    pub async fn get_express_lane_meta_data(
+        &self,
+        block_number: u64,
+    ) -> eyre::Result<ExpressLaneMetaData> {
+        let start_block = block_number - BLOCKS_PER_ROUND;
+        let end_block = block_number;
+        let logs = self.fetch_auction_events_range(start_block, end_block).await?;
+
+        if logs.is_empty() {
+            return Err(eyre::eyre!("no auction events found"));
+        }
+
+        let mut express_lane_meta_data = ExpressLaneMetaData::default();
+        // apply all the logs to make the latest express lane state. 
+        for log in logs {
+            match log {
+                ExpressLaneAuctionLog::SetExpressLaneController(controller) => {
+                    express_lane_meta_data.controller = controller.new_express_lane_controller;
+                    express_lane_meta_data.block_number = controller.block_number;
+                    express_lane_meta_data.round = controller.round;
+                    express_lane_meta_data.round_start_timestamp = controller.start_timestamp;
+                    express_lane_meta_data.round_end_timestamp = controller.end_timestamp;
+                }
+                ExpressLaneAuctionLog::AuctionResolved(auction) => {
+                    express_lane_meta_data.round = auction.round;
+                    express_lane_meta_data.bidder = Some(auction.first_price_bidder);
+                    express_lane_meta_data.controller = auction.first_price_express_lane_controller;
+                    express_lane_meta_data.bid_price = Some(auction.first_price_amount);
+                    express_lane_meta_data.price = Some(auction.price);
+                    express_lane_meta_data.round_start_timestamp = auction.round_start_timestamp;
+                    express_lane_meta_data.round_end_timestamp = auction.round_end_timestamp;
+                }
+            }
+        }
+
+        Ok(express_lane_meta_data)
     }
 
     pub async fn fetch_auction_events(
         &self,
         block_number: u64,
-    ) -> eyre::Result<Vec<ExpressLaneAuctionUpdate>> {
+    ) -> eyre::Result<Vec<ExpressLaneAuctionLog>> {
+        let logs = self.fetch_auction_events_range(block_number, block_number).await?;
+        Ok(logs)
+    }
+
+    // returns all auction events in ascending order of logs.
+    pub async fn fetch_auction_events_range(
+        &self,
+        start_block: u64,
+        end_block: u64,
+    ) -> eyre::Result<Vec<ExpressLaneAuctionLog>> {
         let topics = vec![
             IExpressLaneAuction::SetExpressLaneController::SIGNATURE_HASH,
             IExpressLaneAuction::AuctionResolved::SIGNATURE_HASH,
@@ -73,16 +128,25 @@ impl<T: TracingProvider> ExpressLaneAuctionProvider<T> {
         let filter = Filter::new()
             .address(self.contract_address)
             .event_signature(topics)
-            .from_block(block_number)
-            .to_block(block_number);
-        let logs = self.provider.get_logs(&filter).await?;
-
+            .from_block(start_block)
+            .to_block(end_block);
+        let mut logs = self.provider.get_logs(&filter).await?;
         if logs.is_empty() {
             return Ok(vec![]);
         }
 
-        let mut updates = Vec::new();
+        // sort by order of logs in both block number and log_index within a block.
+        logs.sort_by(|a, b| {
+            let block_cmp = a.block_number.cmp(&b.block_number);
+            match block_cmp {
+                Ordering::Equal => {
+                    a.log_index.cmp(&b.log_index)
+                }
+                _ => block_cmp,
+            }
+        });
 
+        let mut updates = Vec::new();
         for log in logs {
             // Check the first topic (event signature) to determine which event type this is
             if let Some(topic0) = log.topics().first() {
@@ -91,8 +155,9 @@ impl<T: TracingProvider> ExpressLaneAuctionProvider<T> {
                     let event = IExpressLaneAuction::SetExpressLaneController::decode_log(
                         &log.inner, true,
                     )?;
-                    updates.push(ExpressLaneAuctionUpdate::SetExpressLaneController(
-                        ExpressLaneControllerInfo {
+                    updates.push(ExpressLaneAuctionLog::SetExpressLaneController(
+                        ExpressLaneController {
+                            block_number: log.block_number.ok_or(eyre::eyre!("block number not found"))?,
                             round: event.round,
                             new_express_lane_controller: event.newExpressLaneController,
                             previous_express_lane_controller: event.previousExpressLaneController,
@@ -104,18 +169,16 @@ impl<T: TracingProvider> ExpressLaneAuctionProvider<T> {
                 } else if *topic0 == IExpressLaneAuction::AuctionResolved::SIGNATURE_HASH {
                     // Decode as AuctionResolved event
                     let event = IExpressLaneAuction::AuctionResolved::decode_log(&log.inner, true)?;
-                    updates.push(ExpressLaneAuctionUpdate::AuctionResolved(
-                        ExpressLaneAuctionInfo {
-                            round: event.round,
-                            first_price_bidder: event.firstPriceBidder,
-                            first_price_express_lane_controller: event
-                                .firstPriceExpressLaneController,
-                            first_price_amount: event.firstPriceAmount,
-                            price: event.price,
-                            round_start_timestamp: event.roundStartTimestamp,
-                            round_end_timestamp: event.roundEndTimestamp,
-                        },
-                    ));
+                    updates.push(ExpressLaneAuctionLog::AuctionResolved(ExpressLaneAuction {
+                        block_number: log.block_number.ok_or(eyre::eyre!("block number not found"))?,
+                        round: event.round,
+                        first_price_bidder: event.firstPriceBidder,
+                        first_price_express_lane_controller: event.firstPriceExpressLaneController,
+                        first_price_amount: event.firstPriceAmount,
+                        price: event.price,
+                        round_start_timestamp: event.roundStartTimestamp,
+                        round_end_timestamp: event.roundEndTimestamp,
+                    }));
                 }
             }
         }

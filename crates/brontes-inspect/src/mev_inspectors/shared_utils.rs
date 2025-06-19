@@ -348,6 +348,7 @@ impl<DB: LibmdbxReader> SharedInspectorUtils<'_, DB> {
             no_pricing_calculated,
             balance_deltas,
             timeboosted: info.timeboosted,
+            express_lane_controller: metadata.express_lane_auction.as_ref().map(|auction| auction.controller),
         }
     }
 
@@ -403,6 +404,7 @@ impl<DB: LibmdbxReader> SharedInspectorUtils<'_, DB> {
             no_pricing_calculated,
             balance_deltas,
             timeboosted: info.timeboosted,
+            express_lane_controller: metadata.express_lane_auction.as_ref().map(|auction| auction.controller),
         }
     }
 
