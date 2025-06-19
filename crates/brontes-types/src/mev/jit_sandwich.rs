@@ -187,6 +187,7 @@ pub fn compose_sandwich_jit(mev: Vec<Bundle>) -> Option<Bundle> {
         no_pricing_calculated: classified_sandwich.no_pricing_calculated,
         timeboosted:           classified_sandwich.timeboosted,
         express_lane_controller: classified_sandwich.express_lane_controller,
+        express_lane_price:      classified_sandwich.express_lane_price,
     };
 
     Some(Bundle { header: new_classified, data: BundleData::JitSandwich(jit_sand) })

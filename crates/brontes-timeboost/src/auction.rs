@@ -11,8 +11,8 @@ sol!(IExpressLaneAuction, "./src/contracts/IExpressLaneAuction.json");
 
 #[derive(Debug)]
 pub enum ExpressLaneAuctionLog {
-    SetExpressLaneController(ExpressLaneController),
-    AuctionResolved(ExpressLaneAuction),
+    SetExpressLaneController(ExpressLaneControllerEvent),
+    AuctionResolved(ExpressLaneAuctionEvent),
 }
 
 // TODO(jinmel): Parametrize this address
@@ -23,7 +23,7 @@ pub const ONE_EXPRESS_LANE_AUCTION_ADDRESS: Address =
 pub const BLOCKS_PER_ROUND: u64 = 4 * 60;
 
 #[derive(Debug)]
-pub struct ExpressLaneController {
+pub struct ExpressLaneControllerEvent {
     pub block_number: u64,
     pub round: u64,
     pub new_express_lane_controller: Address,
@@ -34,7 +34,7 @@ pub struct ExpressLaneController {
 }
 
 #[derive(Debug)]
-pub struct ExpressLaneAuction {
+pub struct ExpressLaneAuctionEvent {
     pub block_number: u64,
     pub round: u64,
     pub first_price_bidder: Address,
@@ -84,21 +84,22 @@ impl<T: TracingProvider> ExpressLaneAuctionProvider<T> {
         // apply all the logs to make the latest express lane state. 
         for log in logs {
             match log {
-                ExpressLaneAuctionLog::SetExpressLaneController(controller) => {
-                    express_lane_meta_data.controller = controller.new_express_lane_controller;
-                    express_lane_meta_data.block_number = controller.block_number;
-                    express_lane_meta_data.round = controller.round;
-                    express_lane_meta_data.round_start_timestamp = controller.start_timestamp;
-                    express_lane_meta_data.round_end_timestamp = controller.end_timestamp;
+                ExpressLaneAuctionLog::SetExpressLaneController(event) => {
+                    express_lane_meta_data.block_number = event.block_number;
+                    express_lane_meta_data.round = event.round;
+                    express_lane_meta_data.controller = event.new_express_lane_controller;
+                    express_lane_meta_data.round_start_timestamp = event.start_timestamp;
+                    express_lane_meta_data.round_end_timestamp = event.end_timestamp;
                 }
-                ExpressLaneAuctionLog::AuctionResolved(auction) => {
-                    express_lane_meta_data.round = auction.round;
-                    express_lane_meta_data.bidder = Some(auction.first_price_bidder);
-                    express_lane_meta_data.controller = auction.first_price_express_lane_controller;
-                    express_lane_meta_data.bid_price = Some(auction.first_price_amount);
-                    express_lane_meta_data.price = Some(auction.price);
-                    express_lane_meta_data.round_start_timestamp = auction.round_start_timestamp;
-                    express_lane_meta_data.round_end_timestamp = auction.round_end_timestamp;
+                ExpressLaneAuctionLog::AuctionResolved(event) => {
+                    express_lane_meta_data.block_number = event.block_number;
+                    express_lane_meta_data.round = event.round;
+                    express_lane_meta_data.controller = event.first_price_express_lane_controller;
+                    express_lane_meta_data.round_start_timestamp = event.round_start_timestamp;
+                    express_lane_meta_data.round_end_timestamp = event.round_end_timestamp;
+                    express_lane_meta_data.bidder = Some(event.first_price_bidder);
+                    express_lane_meta_data.bid_price = Some(event.first_price_amount);
+                    express_lane_meta_data.price = Some(event.price);
                 }
             }
         }
@@ -156,7 +157,7 @@ impl<T: TracingProvider> ExpressLaneAuctionProvider<T> {
                         &log.inner, true,
                     )?;
                     updates.push(ExpressLaneAuctionLog::SetExpressLaneController(
-                        ExpressLaneController {
+                        ExpressLaneControllerEvent {
                             block_number: log.block_number.ok_or(eyre::eyre!("block number not found"))?,
                             round: event.round,
                             new_express_lane_controller: event.newExpressLaneController,
@@ -169,7 +170,7 @@ impl<T: TracingProvider> ExpressLaneAuctionProvider<T> {
                 } else if *topic0 == IExpressLaneAuction::AuctionResolved::SIGNATURE_HASH {
                     // Decode as AuctionResolved event
                     let event = IExpressLaneAuction::AuctionResolved::decode_log(&log.inner, true)?;
-                    updates.push(ExpressLaneAuctionLog::AuctionResolved(ExpressLaneAuction {
+                    updates.push(ExpressLaneAuctionLog::AuctionResolved(ExpressLaneAuctionEvent {
                         block_number: log.block_number.ok_or(eyre::eyre!("block number not found"))?,
                         round: event.round,
                         first_price_bidder: event.firstPriceBidder,

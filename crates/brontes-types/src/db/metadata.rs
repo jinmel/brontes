@@ -17,13 +17,12 @@ use crate::{
     block_metadata::RelayBlockMetadata,
     constants::WETH_ADDRESS,
     db::{dex::BlockPrice, redefined_types::primitives::*},
+    express_lane::ExpressLaneMetaData,
     implement_table_value_codecs_with_zc,
     pair::Pair,
     serde_utils::{option_addresss, u256, vec_txhash},
     FastHashSet,
-    express_lane::ExpressLaneMetaData,
 };
-
 #[allow(unused_imports)]
 use crate::{db::cex::CexExchange, normalized_actions::NormalizedSwap};
 
@@ -82,12 +81,12 @@ impl BlockMetadataInner {
 pub struct Metadata {
     #[deref]
     #[as_ref]
-    pub block_metadata: BlockMetadata,
-    pub cex_quotes:     CexPriceMap,
-    pub dex_quotes:     Option<DexQuotes>,
-    pub builder_info:   Option<BuilderInfo>,
-    pub cex_trades:     Option<CexTradeMap>,
-    pub express_lane_auction:   Option<ExpressLaneMetaData>,
+    pub block_metadata:       BlockMetadata,
+    pub cex_quotes:           CexPriceMap,
+    pub dex_quotes:           Option<DexQuotes>,
+    pub builder_info:         Option<BuilderInfo>,
+    pub cex_trades:           Option<CexTradeMap>,
+    pub express_lane_auction: Option<ExpressLaneMetaData>,
 }
 
 impl Metadata {
@@ -200,6 +199,13 @@ impl BlockMetadata {
         cex_trades: Option<CexTradeMap>,
         express_lane_auction: Option<ExpressLaneMetaData>,
     ) -> Metadata {
-        Metadata { block_metadata: self, cex_quotes, dex_quotes, builder_info, cex_trades, express_lane_auction }
+        Metadata {
+            block_metadata: self,
+            cex_quotes,
+            dex_quotes,
+            builder_info,
+            cex_trades,
+            express_lane_auction,
+        }
     }
 }
