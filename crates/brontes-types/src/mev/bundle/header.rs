@@ -17,7 +17,7 @@ use crate::{
         searcher::Fund,
         token_info::{TokenInfoWithAddress, TokenInfoWithAddressRedefined},
     },
-    serde_utils::{addresss, option_addresss, txhash, u256},
+    serde_utils::{addresss, option_addresss, option_u256, txhash},
 };
 #[allow(unused_imports)]
 use crate::{
@@ -54,8 +54,8 @@ pub struct BundleHeader {
     pub timeboosted:             bool,
     #[serde(with = "option_addresss")]
     pub express_lane_controller: Option<Address>,
-    #[serde(with = "u256")]
-    pub express_lane_price:      U256,
+    #[serde(with = "option_u256")]
+    pub express_lane_price:      Option<U256>,
 }
 
 #[serde_as]
@@ -202,7 +202,7 @@ impl Serialize for BundleHeader {
             "express_lane_controller",
             &self.express_lane_controller.map(|a| format!("{:?}", a)),
         )?;
-        ser_struct.serialize_field("express_lane_price", &format!("{:?}", &self.express_lane_price))?;
+        ser_struct.serialize_field("express_lane_price", &self.express_lane_price.map(|p| format!("{:?}", p)))?;
         ser_struct.end()
     }
 }

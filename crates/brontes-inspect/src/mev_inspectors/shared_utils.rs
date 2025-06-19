@@ -1,6 +1,6 @@
 use std::{collections::HashSet, sync::Arc};
 
-use alloy_primitives::{Address, FixedBytes, U256};
+use alloy_primitives::{Address, FixedBytes};
 use brontes_database::libmdbx::LibmdbxReader;
 use brontes_metrics::inspectors::{OutlierMetrics, ProfitMetrics};
 use brontes_types::{
@@ -335,8 +335,6 @@ impl<DB: LibmdbxReader> SharedInspectorUtils<'_, DB> {
             .or_else(|| info.get_searcher_eao_info().map(|f| f.fund))
             .unwrap_or_default();
 
-        let express_lane_price: U256 = metadata.express_lane_auction.clone().unwrap_or_default().price.unwrap_or_default();
-
         BundleHeader {
             block_number: metadata.block_num,
             tx_index: info.tx_index,
@@ -351,7 +349,7 @@ impl<DB: LibmdbxReader> SharedInspectorUtils<'_, DB> {
             balance_deltas,
             timeboosted: info.timeboosted,
             express_lane_controller: metadata.express_lane_auction.as_ref().map(|auction| auction.controller),
-            express_lane_price,
+            express_lane_price: metadata.express_lane_auction.as_ref().map(|auction| auction.price.unwrap_or_default()),
         }
     }
 
@@ -394,8 +392,6 @@ impl<DB: LibmdbxReader> SharedInspectorUtils<'_, DB> {
             .or_else(|| info.get_searcher_eao_info().map(|f| f.fund))
             .unwrap_or_default();
 
-        let express_lane_price: U256 = metadata.express_lane_auction.clone().unwrap_or_default().price.unwrap_or_default();
-
         BundleHeader {
             block_number: metadata.block_num,
             tx_index: info.tx_index,
@@ -410,7 +406,7 @@ impl<DB: LibmdbxReader> SharedInspectorUtils<'_, DB> {
             balance_deltas,
             timeboosted: info.timeboosted,
             express_lane_controller: metadata.express_lane_auction.as_ref().map(|auction| auction.controller),
-            express_lane_price,
+            express_lane_price: metadata.express_lane_auction.as_ref().map(|auction| auction.price.unwrap_or_default()),
         }
     }
 
