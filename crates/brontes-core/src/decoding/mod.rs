@@ -100,13 +100,6 @@ impl<T: TracingProvider, DB: LibmdbxReader + DBWriter> Parser<T, DB> {
         }
     }
 
-    pub fn get_express_lane_updates(&self, block_num: u64) -> ExpressLaneAuctionFuture {
-        let express_lane_auction = self.express_lane_auction.clone();
-        tracing::info!(target: "brontes", "getting express lane auction controller for block: {:?}", block_num);
-        Box::pin(async move { express_lane_auction.fetch_auction_events(block_num).await })
-            as ExpressLaneAuctionFuture
-    }
-
     /// ensures no libmdbx write
     pub fn execute_discovery(&self, block_num: u64) -> ParserFuture {
         // This will satisfy its lifetime scope do to the lifetime itself living longer

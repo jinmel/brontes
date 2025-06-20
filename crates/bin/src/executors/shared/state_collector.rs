@@ -7,12 +7,11 @@ use std::{
     task::{Poll, Waker},
 };
 
-use alloy_primitives::{utils::format_ether, Address};
+use alloy_primitives::Address;
 use brontes_classifier::Classifier;
 use brontes_core::decoding::Parser;
 use brontes_database::clickhouse::ClickhouseHandle;
 use brontes_metrics::range::GlobalRangeMetrics;
-use brontes_timeboost::auction::ExpressLaneAuctionLog;
 use brontes_types::{
     db::traits::{DBWriter, LibmdbxReader},
     normalized_actions::Action,
@@ -31,8 +30,6 @@ type CollectionFut<'a> =
     Pin<Box<dyn Future<Output = eyre::Result<(BlockHash, BlockTree<Action>)>> + Send + 'a>>;
 type ExecutionFut<'a> =
     Pin<Box<dyn Future<Output = Option<(BlockHash, Vec<TxTrace>, Header)>> + Send + 'a>>;
-type ExpressLaneAuctionFut<'a> =
-    Pin<Box<dyn Future<Output = eyre::Result<Vec<ExpressLaneAuctionLog>>> + Send + 'a>>;
 
 pub struct StateCollector<T: TracingProvider, DB: LibmdbxReader + DBWriter, CH: ClickhouseHandle> {
     mark_as_finished: Arc<AtomicBool>,
@@ -86,7 +83,6 @@ impl<T: TracingProvider, DB: LibmdbxReader + DBWriter, CH: ClickhouseHandle>
         generate_pricing: bool,
         block: u64,
         fut: ExecutionFut<'static>,
-        express_lane_auction_fut: ExpressLaneAuctionFut<'static>,
         classifier: &'static Classifier<'static, T, DB>,
         id: usize,
         metrics: Option<GlobalRangeMetrics>,
@@ -96,41 +92,9 @@ impl<T: TracingProvider, DB: LibmdbxReader + DBWriter, CH: ClickhouseHandle>
             return Err(eyre!("no traces found {block}"))
         };
 
-        let express_lane_updates = express_lane_auction_fut
-            .await
-            .map_err(|e| eyre!("error getting express lane auction updates: {e}"))?;
-
         trace!("Got {} traces + header", traces.len());
 
         let res = if let Some(metrics) = metrics {
-            let is_auction_resolved_round = express_lane_updates
-                .iter()
-                .any(|update| matches!(update, ExpressLaneAuctionLog::AuctionResolved(_)));
-
-            for update in &express_lane_updates {
-                match update {
-                    ExpressLaneAuctionLog::SetExpressLaneController(info) => {
-                        if is_auction_resolved_round {
-                            metrics.add_transfer_controller(info.new_express_lane_controller);
-                        }
-                    }
-                    ExpressLaneAuctionLog::AuctionResolved(info) => {
-                        // TODO(jinmel): check the biddingToken address and format the right amount
-                        // by correct decimals. Right now the biddingToken
-                        // is WETH, so we use format_ether to convert wei to ether.
-                        let price_eth = format_ether(info.price).parse::<f64>()?;
-                        let first_price_eth =
-                            format_ether(info.first_price_amount).parse::<f64>()?;
-                        metrics.set_current_round(info.round);
-                        metrics.add_express_lane_auction_winner(
-                            info.first_price_bidder,
-                            price_eth,
-                            first_price_eth,
-                        );
-                    }
-                }
-            }
-
             metrics.add_pending_tree(id);
             metrics.update_gas_used(id, header.gas_used);
             let txs_count = traces.len();
@@ -155,7 +119,6 @@ impl<T: TracingProvider, DB: LibmdbxReader + DBWriter, CH: ClickhouseHandle>
 
     pub fn fetch_state_for(&mut self, block: u64, id: usize, metrics: Option<GlobalRangeMetrics>) {
         let execute_fut = self.parser.execute(block, id, metrics.clone());
-        let express_lane_auction_fut = self.parser.get_express_lane_updates(block);
 
         let generate_pricing = self.metadata_fetcher.generate_dex_pricing(block, self.db);
         self.collection_future = Some(Box::pin(
@@ -163,7 +126,6 @@ impl<T: TracingProvider, DB: LibmdbxReader + DBWriter, CH: ClickhouseHandle>
                 generate_pricing,
                 block,
                 execute_fut,
-                express_lane_auction_fut,
                 self.classifier,
                 id,
                 metrics,
