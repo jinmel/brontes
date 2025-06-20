@@ -19,9 +19,6 @@ pub const ONE_EXPRESS_LANE_AUCTION_ADDRESS: Address =
     Address::new(hex!("5fcb496a31b7AE91e7c9078Ec662bd7A55cd3079"));
 
 // 250ms block time, 1min per round
-// TODO(jinmel): be careful that we are using non-archive node which might not
-// have the logs for this block range when --behind-tips is configured to a
-// large value
 pub const BLOCKS_PER_ROUND: u64 = 4 * 60;
 
 #[derive(Debug)]
@@ -68,7 +65,7 @@ impl<T: TracingProvider> ExpressLaneAuctionProvider<T> {
         &self,
         block_number: u64,
     ) -> eyre::Result<ExpressLaneMetaData> {
-        let start_block = block_number - (BLOCKS_PER_ROUND * 2);
+        let start_block = block_number - BLOCKS_PER_ROUND;
         let end_block = block_number;
         let logs = self
             .fetch_auction_events_range(start_block, end_block)

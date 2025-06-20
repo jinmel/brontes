@@ -42,7 +42,6 @@ pub type TraceClickhouseFuture = Pin<Box<dyn Future<Output = ()> + Send + 'stati
 
 pub struct Parser<T: TracingProvider, DB: LibmdbxReader + DBWriter> {
     parser:               TraceParser<T, DB>,
-    express_lane_auction: ExpressLaneAuctionProvider<T>,
 }
 
 pub struct LogParser<T: TracingProvider, DB: LibmdbxReader + DBWriter> {
@@ -57,8 +56,7 @@ impl<T: TracingProvider, DB: LibmdbxReader + DBWriter> Parser<T, DB> {
     ) -> Self {
         let tracing = Arc::new(tracing);
         let parser = TraceParser::new(libmdbx, tracing.clone(), Arc::new(metrics_tx)).await;
-        let express_lane_auction = ExpressLaneAuctionProvider::new(tracing.clone());
-        Self { parser, express_lane_auction }
+        Self { parser }
     }
 
     #[cfg(not(feature = "local-reth"))]
