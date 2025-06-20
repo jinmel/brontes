@@ -65,7 +65,7 @@ impl<T: TracingProvider> ExpressLaneAuctionProvider<T> {
         &self,
         block_number: u64,
     ) -> eyre::Result<ExpressLaneMetaData> {
-        let start_block = block_number - BLOCKS_PER_ROUND;
+        let start_block = block_number - BLOCKS_PER_ROUND - 20; // Add some buffer until the auction is resolved. 
         let end_block = block_number;
         let logs = self
             .fetch_auction_events_range(start_block, end_block)
