@@ -19,7 +19,8 @@ CREATE TABLE IF NOT EXISTS mev.bundle_header
     `run_id` UInt64,
     `timeboosted` Bool DEFAULT false,
     `express_lane_controller` Nullable(String),
-    `express_lane_price` Nullable(String)
+    `express_lane_price` Nullable(String),
+    `express_lane_round` Nullable(UInt64)
 ) 
 ENGINE = MergeTree()
 PRIMARY KEY (`block_number`, `tx_hash`)

@@ -56,6 +56,7 @@ pub struct BundleHeader {
     pub express_lane_controller: Option<Address>,
     #[serde(with = "option_u256")]
     pub express_lane_price:      Option<U256>,
+    pub express_lane_round:      Option<u64>,
 }
 
 #[serde_as]
@@ -203,6 +204,7 @@ impl Serialize for BundleHeader {
             &self.express_lane_controller.map(|a| format!("{:?}", a)),
         )?;
         ser_struct.serialize_field("express_lane_price", &self.express_lane_price.map(|p| format!("{:?}", p)))?;
+        ser_struct.serialize_field("express_lane_round", &self.express_lane_round)?;
         ser_struct.end()
     }
 }
@@ -226,5 +228,6 @@ impl DbRow for BundleHeader {
         "timeboosted",
         "express_lane_controller",
         "express_lane_price",
+        "express_lane_round",
     ];
 }
