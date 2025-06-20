@@ -1,11 +1,10 @@
-use std::sync::Arc;
+use std::{cmp::Ordering, sync::Arc};
 
 use alloy_primitives::{hex, Address, U256};
 use alloy_rpc_types::Filter;
 use alloy_sol_macro::sol;
 use alloy_sol_types::SolEvent;
 use brontes_types::{express_lane::ExpressLaneMetaData, traits::TracingProvider};
-use std::cmp::Ordering;
 
 sol!(IExpressLaneAuction, "./src/contracts/IExpressLaneAuction.json");
 
@@ -20,6 +19,9 @@ pub const ONE_EXPRESS_LANE_AUCTION_ADDRESS: Address =
     Address::new(hex!("5fcb496a31b7AE91e7c9078Ec662bd7A55cd3079"));
 
 // 250ms block time, 1min per round
+// TODO(jinmel): be careful that we are using non-archive node which might not
+// have the logs for this block range when --behind-tips is configured to a
+// large value
 pub const BLOCKS_PER_ROUND: u64 = 4 * 60;
 
 #[derive(Debug)]
@@ -47,25 +49,19 @@ pub struct ExpressLaneAuctionEvent {
 
 #[derive(Debug)]
 pub struct ExpressLaneAuctionProvider<T: TracingProvider> {
-    provider: Arc<T>,
+    provider:         Arc<T>,
     contract_address: Address,
 }
 
 impl<T: TracingProvider> Clone for ExpressLaneAuctionProvider<T> {
     fn clone(&self) -> Self {
-        Self {
-            provider: self.provider.clone(),
-            contract_address: self.contract_address,
-        }
+        Self { provider: self.provider.clone(), contract_address: self.contract_address }
     }
 }
 
 impl<T: TracingProvider> ExpressLaneAuctionProvider<T> {
     pub fn new(provider: Arc<T>) -> Self {
-        Self {
-            provider,
-            contract_address: ONE_EXPRESS_LANE_AUCTION_ADDRESS,
-        }
+        Self { provider, contract_address: ONE_EXPRESS_LANE_AUCTION_ADDRESS }
     }
 
     pub async fn get_express_lane_meta_data(
@@ -74,14 +70,16 @@ impl<T: TracingProvider> ExpressLaneAuctionProvider<T> {
     ) -> eyre::Result<ExpressLaneMetaData> {
         let start_block = block_number - BLOCKS_PER_ROUND;
         let end_block = block_number;
-        let logs = self.fetch_auction_events_range(start_block, end_block).await?;
+        let logs = self
+            .fetch_auction_events_range(start_block, end_block)
+            .await?;
 
         if logs.is_empty() {
             return Err(eyre::eyre!("no auction events found"));
         }
 
         let mut express_lane_meta_data = ExpressLaneMetaData::default();
-        // apply all the logs to make the latest express lane state. 
+        // apply all the logs to make the latest express lane state.
         for log in logs {
             match log {
                 ExpressLaneAuctionLog::SetExpressLaneController(event) => {
@@ -111,7 +109,9 @@ impl<T: TracingProvider> ExpressLaneAuctionProvider<T> {
         &self,
         block_number: u64,
     ) -> eyre::Result<Vec<ExpressLaneAuctionLog>> {
-        let logs = self.fetch_auction_events_range(block_number, block_number).await?;
+        let logs = self
+            .fetch_auction_events_range(block_number, block_number)
+            .await?;
         Ok(logs)
     }
 
@@ -140,9 +140,7 @@ impl<T: TracingProvider> ExpressLaneAuctionProvider<T> {
         logs.sort_by(|a, b| {
             let block_cmp = a.block_number.cmp(&b.block_number);
             match block_cmp {
-                Ordering::Equal => {
-                    a.log_index.cmp(&b.log_index)
-                }
+                Ordering::Equal => a.log_index.cmp(&b.log_index),
                 _ => block_cmp,
             }
         });
@@ -158,7 +156,9 @@ impl<T: TracingProvider> ExpressLaneAuctionProvider<T> {
                     )?;
                     updates.push(ExpressLaneAuctionLog::SetExpressLaneController(
                         ExpressLaneControllerEvent {
-                            block_number: log.block_number.ok_or(eyre::eyre!("block number not found"))?,
+                            block_number: log
+                                .block_number
+                                .ok_or(eyre::eyre!("block number not found"))?,
                             round: event.round,
                             new_express_lane_controller: event.newExpressLaneController,
                             previous_express_lane_controller: event.previousExpressLaneController,
@@ -171,7 +171,9 @@ impl<T: TracingProvider> ExpressLaneAuctionProvider<T> {
                     // Decode as AuctionResolved event
                     let event = IExpressLaneAuction::AuctionResolved::decode_log(&log.inner, true)?;
                     updates.push(ExpressLaneAuctionLog::AuctionResolved(ExpressLaneAuctionEvent {
-                        block_number: log.block_number.ok_or(eyre::eyre!("block number not found"))?,
+                        block_number: log
+                            .block_number
+                            .ok_or(eyre::eyre!("block number not found"))?,
                         round: event.round,
                         first_price_bidder: event.firstPriceBidder,
                         first_price_express_lane_controller: event.firstPriceExpressLaneController,
