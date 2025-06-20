@@ -1,6 +1,6 @@
 use std::fmt::{self, Debug, Display};
 
-use alloy_primitives::Address;
+use alloy_primitives::{Address, U256};
 use clickhouse::{DbRow, Row};
 use colored::Colorize;
 use itertools::Itertools;
@@ -17,7 +17,7 @@ use crate::{
         searcher::Fund,
         token_info::{TokenInfoWithAddress, TokenInfoWithAddressRedefined},
     },
-    serde_utils::{addresss, option_addresss, txhash},
+    serde_utils::{addresss, option_addresss, option_u256, txhash},
 };
 #[allow(unused_imports)]
 use crate::{
@@ -32,26 +32,31 @@ use crate::{
 pub struct BundleHeader {
     pub block_number: u64,
 
-    pub tx_index:              u64,
+    pub tx_index:                u64,
     #[serde(with = "txhash")]
     // For a sandwich this is always the first frontrun tx hash
     pub tx_hash: B256,
     #[serde(with = "addresss")]
-    pub eoa:                   Address,
+    pub eoa:                     Address,
     #[serde(with = "option_addresss")]
-    pub mev_contract:          Option<Address>,
+    pub mev_contract:            Option<Address>,
     #[redefined(same_fields)]
     #[serde(default)]
-    pub fund:                  Fund,
-    pub profit_usd:            f64,
+    pub fund:                    Fund,
+    pub profit_usd:              f64,
     // Total tx cost in USD
-    pub bribe_usd:             f64,
+    pub bribe_usd:               f64,
     #[redefined(same_fields)]
-    pub mev_type:              MevType,
+    pub mev_type:                MevType,
     // if we generated this arb without pricing
-    pub no_pricing_calculated: bool,
-    pub balance_deltas:        Vec<TransactionAccounting>,
-    pub timeboosted:           bool,
+    pub no_pricing_calculated:   bool,
+    pub balance_deltas:          Vec<TransactionAccounting>,
+    pub timeboosted:             bool,
+    #[serde(with = "option_addresss")]
+    pub express_lane_controller: Option<Address>,
+    #[serde(with = "option_u256")]
+    pub express_lane_price:      Option<U256>,
+    pub express_lane_round:      Option<u64>,
 }
 
 #[serde_as]
@@ -194,6 +199,12 @@ impl Serialize for BundleHeader {
             .collect_vec();
         ser_struct.serialize_field("balance_deltas.token_deltas", &balance_deltas_token_deltas)?;
         ser_struct.serialize_field("timeboosted", &self.timeboosted)?;
+        ser_struct.serialize_field(
+            "express_lane_controller",
+            &self.express_lane_controller.map(|a| format!("{:?}", a)),
+        )?;
+        ser_struct.serialize_field("express_lane_price", &self.express_lane_price.map(|p| format!("{:?}", p)))?;
+        ser_struct.serialize_field("express_lane_round", &self.express_lane_round)?;
         ser_struct.end()
     }
 }
@@ -215,5 +226,8 @@ impl DbRow for BundleHeader {
         "balance_deltas.name",
         "balance_deltas.token_deltas",
         "timeboosted",
+        "express_lane_controller",
+        "express_lane_price",
+        "express_lane_round",
     ];
 }

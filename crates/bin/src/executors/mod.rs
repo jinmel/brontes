@@ -45,6 +45,7 @@ use self::shared::{
     dex_pricing::WaitingForPricerFuture, metadata_loader::MetadataLoader,
     state_collector::StateCollector,
 };
+use brontes_timeboost::auction::ExpressLaneAuctionProvider;
 use crate::cli::static_object;
 
 pub const PROMETHEUS_ENDPOINT_IP: [u8; 4] = [0u8, 0u8, 0u8, 0u8];
@@ -438,6 +439,7 @@ impl<T: TracingProvider, DB: LibmdbxInit, CH: ClickhouseHandle, P: Processor>
             self.max_pending,
         );
 
+        let express_lane_auction_provider = ExpressLaneAuctionProvider::new(self.parser.get_tracer());
         let pricing = WaitingForPricerFuture::new(pricer, executor);
         let fetcher = MetadataLoader::new(
             tip.then_some(self.clickhouse),
@@ -447,6 +449,7 @@ impl<T: TracingProvider, DB: LibmdbxInit, CH: ClickhouseHandle, P: Processor>
             data_req,
             self.cex_window,
             self.max_pending,
+            express_lane_auction_provider,
         );
 
         let block_window_size = self

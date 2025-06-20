@@ -11,6 +11,7 @@ use std::{
 
 use alloy_primitives::Address;
 use brontes_database::clickhouse::ClickhouseHandle;
+use brontes_timeboost::auction::ExpressLaneAuctionProvider;
 use brontes_types::{
     constants::BLOCK_TIME_MILLIS,
     db::{
@@ -35,15 +36,16 @@ pub type ClickhouseMetadataFuture =
 
 /// deals with all cases on how we get and finalize our metadata
 pub struct MetadataLoader<T: TracingProvider, CH: ClickhouseHandle> {
-    clickhouse:            Option<&'static CH>,
-    dex_pricer_stream:     WaitingForPricerFuture<T>,
-    clickhouse_futures:    ClickhouseMetadataFuture,
-    result_buf:            VecDeque<BlockData>,
-    needs_more_data:       Arc<AtomicBool>,
-    cex_window_data:       CexWindow,
-    always_generate_price: bool,
-    force_no_dex_pricing:  bool,
-    max_pending:           usize,
+    clickhouse:                    Option<&'static CH>,
+    dex_pricer_stream:             WaitingForPricerFuture<T>,
+    clickhouse_futures:            ClickhouseMetadataFuture,
+    result_buf:                    VecDeque<BlockData>,
+    needs_more_data:               Arc<AtomicBool>,
+    cex_window_data:               CexWindow,
+    always_generate_price:         bool,
+    force_no_dex_pricing:          bool,
+    max_pending:                   usize,
+    express_lane_auction_provider: ExpressLaneAuctionProvider<T>,
 }
 
 impl<T: TracingProvider, CH: ClickhouseHandle> MetadataLoader<T, CH> {
@@ -55,6 +57,7 @@ impl<T: TracingProvider, CH: ClickhouseHandle> MetadataLoader<T, CH> {
         needs_more_data: Arc<AtomicBool>,
         #[allow(unused)] cex_window_sec: usize,
         max_pending: usize,
+        express_lane_auction_provider: ExpressLaneAuctionProvider<T>,
     ) -> Self {
         Self {
             cex_window_data: CexWindow::new(cex_window_sec),
@@ -66,6 +69,7 @@ impl<T: TracingProvider, CH: ClickhouseHandle> MetadataLoader<T, CH> {
             always_generate_price,
             force_no_dex_pricing,
             max_pending,
+            express_lane_auction_provider,
         }
     }
 
@@ -270,6 +274,7 @@ impl<T: TracingProvider, CH: ClickhouseHandle> MetadataLoader<T, CH> {
         // given every download is -6 + 6 around the block
         // we calculate the offset from the current block that we need
         let offsets = (window * 1000 / BLOCK_TIME_MILLIS) as u64;
+        let express_lane_auction_provider = self.express_lane_auction_provider.clone();
         let future = Box::pin(async move {
             let builder_info = libmdbx
                 .try_fetch_builder_info(tree.header.beneficiary)
@@ -334,6 +339,10 @@ impl<T: TracingProvider, CH: ClickhouseHandle> MetadataLoader<T, CH> {
 
             meta.cex_trades = Some(trades);
             meta.builder_info = builder_info;
+            // TODO(jinmel): express lane auction metadata is only available when using clickhouse. 
+            meta.express_lane_auction = express_lane_auction_provider.get_express_lane_meta_data(block).await.inspect_err(|e| {
+                tracing::warn!(?e, "failed to load express lane auction meta data");
+            }).ok();
             (block, tree, meta)
         });
 

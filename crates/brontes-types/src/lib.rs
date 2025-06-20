@@ -47,3 +47,4 @@ pub use protocol::*;
 pub mod channel_alerts;
 pub use channel_alerts::*;
 pub mod block_metadata;
+pub mod express_lane;
