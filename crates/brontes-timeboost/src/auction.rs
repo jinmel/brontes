@@ -75,7 +75,7 @@ impl<T: TracingProvider> ExpressLaneAuctionProvider<T> {
             .await?;
 
         if logs.is_empty() {
-            return Err(eyre::eyre!("no auction events found"));
+            return Err(eyre::eyre!("no auction events found for start block: {:?}, end block: {:?}", start_block, end_block));
         }
 
         let mut express_lane_meta_data = ExpressLaneMetaData::default();
