@@ -4,4 +4,4 @@ CREATE TABLE IF NOT EXISTS ethereum.blocks (
     `block_timestamp` UInt64,
     `valid` UInt8,
 ) ENGINE = MergeTree()
-ORDER BY block_number
+ORDER BY (block_timestamp, block_number)
