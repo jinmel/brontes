@@ -1,6 +1,6 @@
 use std::{collections::HashSet, sync::Arc};
 
-use alloy_primitives::{Address, FixedBytes, U256};
+use alloy_primitives::{Address, FixedBytes};
 use brontes_database::libmdbx::LibmdbxReader;
 use brontes_metrics::inspectors::{OutlierMetrics, ProfitMetrics};
 use brontes_types::{
