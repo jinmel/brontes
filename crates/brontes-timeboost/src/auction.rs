@@ -19,6 +19,7 @@ pub const ONE_EXPRESS_LANE_AUCTION_ADDRESS: Address =
     Address::new(hex!("5fcb496a31b7AE91e7c9078Ec662bd7A55cd3079"));
 
 // 250ms block time, 1min per round
+// NOTE: Nitro full node prunes out blocks behind 128 blocks however longer range works anyway.
 pub const BLOCKS_PER_ROUND: u64 = 4 * 60;
 
 #[derive(Debug)]
