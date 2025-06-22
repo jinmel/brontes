@@ -329,6 +329,13 @@ impl<DB: LibmdbxReader> SharedInspectorUtils<'_, DB> {
             })
             .sum::<f64>();
 
+        let express_lane_price = metadata
+            .express_lane_auction
+            .as_ref()
+            .map(|auction| auction.price.unwrap_or_default());
+        let express_lane_price_usd = express_lane_price
+            .map(|price| metadata.get_gas_price_usd(price.to::<u128>(), self.quote).to_float());
+
         let fund = info
             .get_searcher_contract_info()
             .map(|i| i.fund)
@@ -348,9 +355,16 @@ impl<DB: LibmdbxReader> SharedInspectorUtils<'_, DB> {
             no_pricing_calculated,
             balance_deltas,
             timeboosted: info.timeboosted,
-            express_lane_controller: metadata.express_lane_auction.as_ref().map(|auction| auction.controller),
-            express_lane_price: metadata.express_lane_auction.as_ref().map(|auction| auction.price.unwrap_or_default()),
-            express_lane_round: metadata.express_lane_auction.as_ref().map(|auction| auction.round),
+            express_lane_controller: metadata
+                .express_lane_auction
+                .as_ref()
+                .map(|auction| auction.controller),
+            express_lane_price,
+            express_lane_price_usd,
+            express_lane_round: metadata
+                .express_lane_auction
+                .as_ref()
+                .map(|auction| auction.round),
         }
     }
 
@@ -393,6 +407,14 @@ impl<DB: LibmdbxReader> SharedInspectorUtils<'_, DB> {
             .or_else(|| info.get_searcher_eao_info().map(|f| f.fund))
             .unwrap_or_default();
 
+        let express_lane_price = metadata
+            .express_lane_auction
+            .as_ref()
+            .map(|auction| auction.price.unwrap_or_default());
+
+        let express_lane_price_usd = express_lane_price
+            .map(|price| metadata.get_gas_price_usd(price.to::<u128>(), self.quote).to_float());
+
         BundleHeader {
             block_number: metadata.block_num,
             tx_index: info.tx_index,
@@ -406,9 +428,16 @@ impl<DB: LibmdbxReader> SharedInspectorUtils<'_, DB> {
             no_pricing_calculated,
             balance_deltas,
             timeboosted: info.timeboosted,
-            express_lane_controller: metadata.express_lane_auction.as_ref().map(|auction| auction.controller),
-            express_lane_price: metadata.express_lane_auction.as_ref().map(|auction| auction.price.unwrap_or_default()),
-            express_lane_round: metadata.express_lane_auction.as_ref().map(|auction| auction.round),
+            express_lane_controller: metadata
+                .express_lane_auction
+                .as_ref()
+                .map(|auction| auction.controller),
+            express_lane_price,
+            express_lane_price_usd,
+            express_lane_round: metadata
+                .express_lane_auction
+                .as_ref()
+                .map(|auction| auction.round),
         }
     }
 
