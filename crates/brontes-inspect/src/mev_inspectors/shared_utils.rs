@@ -348,6 +348,9 @@ impl<DB: LibmdbxReader> SharedInspectorUtils<'_, DB> {
             no_pricing_calculated,
             balance_deltas,
             timeboosted: info.timeboosted,
+            express_lane_controller: metadata.express_lane_auction.as_ref().map(|auction| auction.controller),
+            express_lane_price: metadata.express_lane_auction.as_ref().map(|auction| auction.price.unwrap_or_default()),
+            express_lane_round: metadata.express_lane_auction.as_ref().map(|auction| auction.round),
         }
     }
 
@@ -403,6 +406,9 @@ impl<DB: LibmdbxReader> SharedInspectorUtils<'_, DB> {
             no_pricing_calculated,
             balance_deltas,
             timeboosted: info.timeboosted,
+            express_lane_controller: metadata.express_lane_auction.as_ref().map(|auction| auction.controller),
+            express_lane_price: metadata.express_lane_auction.as_ref().map(|auction| auction.price.unwrap_or_default()),
+            express_lane_round: metadata.express_lane_auction.as_ref().map(|auction| auction.round),
         }
     }
 

@@ -484,7 +484,7 @@ impl LibmdbxReader for LibmdbxReadWriter {
             eth_price.unwrap_or_default(),
             block_meta.private_flow.into_iter().collect(),
         )
-        .into_metadata(cex_quotes, None, None, None))
+        .into_metadata(cex_quotes, None, None, None, None))
     }
 
     #[brontes_macros::metrics_call(ptr=metrics,scope,db_read,"metadata")]
@@ -508,7 +508,7 @@ impl LibmdbxReader for LibmdbxReadWriter {
                 eth_price.unwrap_or_default(),
                 block_meta.private_flow.into_iter().collect(),
             )
-            .into_metadata(cex_quotes, Some(dex_quotes), None, None)
+            .into_metadata(cex_quotes, Some(dex_quotes), None, None, None)
         })
     }
 

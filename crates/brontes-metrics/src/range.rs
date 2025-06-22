@@ -1,6 +1,5 @@
 use std::{pin::Pin, time::Instant};
 
-use alloy_primitives::Address;
 use metrics::{Counter, Gauge, Histogram};
 use prometheus::{
     register_gauge_vec, register_int_counter, register_int_counter_vec, register_int_gauge,
@@ -34,12 +33,6 @@ pub struct GlobalRangeMetrics {
     pub latest_processed_block: IntGauge,
     /// gas used for the range
     pub gas_used: IntGaugeVec,
-    /// express lane auction
-    pub express_lane_auction_win_total: IntCounterVec,
-    pub express_lane_auction_first_price: GaugeVec,
-    pub express_lane_auction_price: GaugeVec,
-    pub express_lane_current_round: IntGauge,
-    pub express_lane_transfer_controller_total: IntCounterVec,
 }
 
 impl GlobalRangeMetrics {
@@ -169,11 +162,6 @@ impl GlobalRangeMetrics {
             processing_run_time_ms: metrics::register_histogram!("brontes_processing_runtime_ms"),
             latest_processed_block,
             gas_used,
-            express_lane_auction_win_total,
-            express_lane_auction_first_price,
-            express_lane_auction_price,
-            express_lane_current_round,
-            express_lane_transfer_controller_total,
         }
     }
 
@@ -267,33 +255,6 @@ impl GlobalRangeMetrics {
         self.gas_used
             .with_label_values(&[&format!("{id}")])
             .set(gas as i64);
-    }
-
-    pub fn add_express_lane_auction_winner(
-        &self,
-        winner_address: Address,
-        price: f64,
-        first_price: f64,
-    ) {
-        self.express_lane_auction_win_total
-            .with_label_values(&[&winner_address.to_string()])
-            .inc();
-        self.express_lane_auction_price
-            .with_label_values(&[&winner_address.to_string()])
-            .set(price);
-        self.express_lane_auction_first_price
-            .with_label_values(&[&winner_address.to_string()])
-            .set(first_price);
-    }
-
-    pub fn add_transfer_controller(&self, address: Address) {
-        self.express_lane_transfer_controller_total
-            .with_label_values(&[&address.to_string()])
-            .inc();
-    }
-
-    pub fn set_current_round(&self, round: u64) {
-        self.express_lane_current_round.set(round as i64);
     }
 }
 
