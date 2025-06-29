@@ -16,6 +16,7 @@ clickhouse client --query="
     DROP DATABASE IF EXISTS ethereum;
     DROP DATABASE IF EXISTS mev;
     DROP DATABASE IF EXISTS cex;
+    DROP DATABASE IF EXISTS dex;
     DROP DATABASE IF EXISTS timeboost;
 " --user $USER --password "$PASSWORD"
 
@@ -26,6 +27,7 @@ clickhouse client --query="
     CREATE DATABASE ethereum;
     CREATE DATABASE mev;
     CREATE DATABASE cex;
+    CREATE DATABASE dex;
     CREATE DATABASE timeboost;
 " --user $USER --password "$PASSWORD"
 
