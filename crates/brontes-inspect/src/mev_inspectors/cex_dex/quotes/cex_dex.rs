@@ -70,6 +70,8 @@ use super::types::{
     log_cex_dex_quote_delta, CexDexProcessing, ExchangeLeg, ExchangeLegCexPrice, PossibleCexDex,
 };
 
+use brontes_types::constants::CEX_DEX_MIN_PROFIT_THRESHOLD_USD;
+
 pub const FILTER_THRESHOLD: u64 = 20;
 
 use itertools::Itertools;
@@ -488,7 +490,8 @@ impl<DB: LibmdbxReader> CexDexQuotesInspector<'_, DB> {
             info.is_searcher_of_type_with_count_threshold(MevType::CexDexQuotes, FILTER_THRESHOLD);
         let is_labelled_cex_dex_bot = info.is_labelled_searcher_of_type(MevType::CexDexQuotes);
 
-        let should_include_based_on_pnl = possible_cex_dex.pnl.aggregate_pnl > 1.5;
+        let should_include_based_on_pnl =
+            possible_cex_dex.pnl.aggregate_pnl > CEX_DEX_MIN_PROFIT_THRESHOLD_USD;
 
         let should_include_if_know_cex_dex = possible_cex_dex.pnl.aggregate_pnl > 0.0;
 

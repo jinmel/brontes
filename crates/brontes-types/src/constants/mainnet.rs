@@ -2,6 +2,10 @@ use alloy_primitives::{hex, Address};
 
 pub const BLOCK_TIME_MILLIS: usize = 12_000;
 
+/// Minimum profit in USD required for a CEX-DEX arbitrage to be considered
+/// profitable on chains with slower block times like mainnet.
+pub const CEX_DEX_MIN_PROFIT_THRESHOLD_USD: f64 = 1.5;
+
 pub const USDT_ADDRESS_STRING: &str = "0xdAC17F958D2ee523a2206206994597C13D831ec7";
 
 pub const ETH_ADDRESS: Address = Address::new(hex!("EeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"));

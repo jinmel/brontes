@@ -2,6 +2,10 @@ use alloy_primitives::{hex, Address};
 
 pub const BLOCK_TIME_MILLIS: usize = 250;
 
+/// Minimum profit in USD required for a CEX-DEX arbitrage to be considered
+/// profitable on low-latency chains like Arbitrum.
+pub const CEX_DEX_MIN_PROFIT_THRESHOLD_USD: f64 = 0.05;
+
 pub const USDT_ADDRESS_STRING: &str = "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9";
 // USD Stablecoins
 pub const USDT_ADDRESS: Address = Address::new(hex!("Fd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9"));
