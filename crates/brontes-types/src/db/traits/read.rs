@@ -1,4 +1,7 @@
+use std::pin::Pin;
+
 use alloy_primitives::Address;
+use futures::Future;
 
 use crate::{
     db::{
@@ -107,10 +110,20 @@ pub trait LibmdbxReader: Send + Sync + Unpin + 'static {
 
     fn get_dex_quotes(&self, block: u64) -> eyre::Result<DexQuotes>;
 
-    fn try_fetch_token_info(&self, address: Address) -> eyre::Result<TokenInfoWithAddress>;
+    fn try_fetch_token_info(
+        &self,
+        address: Address,
+    ) -> Pin<Box<dyn Future<Output = eyre::Result<TokenInfoWithAddress>> + Send + '_>>;
 
-    fn try_fetch_token_decimals(&self, address: Address) -> eyre::Result<u8> {
-        self.try_fetch_token_info(address).map(|info| info.decimals)
+    fn try_fetch_token_decimals(
+        &self,
+        address: Address,
+    ) -> Pin<Box<dyn Future<Output = eyre::Result<u8>> + Send + '_>> {
+        Box::pin(async move {
+            self.try_fetch_token_info(address)
+                .await
+                .map(|info| info.decimals)
+        })
     }
 
     fn try_fetch_mev_blocks(
