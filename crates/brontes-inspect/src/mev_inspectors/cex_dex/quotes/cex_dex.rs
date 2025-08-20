@@ -486,7 +486,7 @@ impl<DB: LibmdbxReader> CexDexQuotesInspector<'_, DB> {
         let is_labelled_cex_dex_bot = info.is_labelled_searcher_of_type(MevType::CexDexQuotes);
 
         let should_include_based_on_pnl =
-            possible_cex_dex.pnl.aggregate_pnl.abs() > CEX_DEX_MIN_PROFIT_THRESHOLD_USD;
+            possible_cex_dex.pnl.aggregate_pnl > CEX_DEX_MIN_PROFIT_THRESHOLD_USD;
 
         let should_include_if_know_cex_dex = possible_cex_dex.pnl.aggregate_pnl > 0.0;
 
