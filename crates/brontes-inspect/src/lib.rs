@@ -124,6 +124,7 @@ impl Inspectors {
         cex_exchanges: &[CexExchange],
         trade_config: CexDexTradeConfig,
         cex_dex_min_profit_threshold_usd: f64,
+        cex_dex_known_min_profit_threshold_usd: f64,
         metrics: Option<OutlierMetrics>,
         profit_metrics: Option<ProfitMetrics>,
     ) -> DynMevInspector {
@@ -141,6 +142,7 @@ impl Inspectors {
                 cex_exchanges,
                 trade_config.quote_offset_from_block_us,
                 cex_dex_min_profit_threshold_usd,
+                cex_dex_known_min_profit_threshold_usd,
                 metrics,
                 profit_metrics,
             )) as DynMevInspector,

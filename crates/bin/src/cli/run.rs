@@ -91,8 +91,13 @@ pub struct RunArgs {
     #[arg(long, default_value = "false")]
     pub with_metrics:         bool,
     /// Minimum profit in USD to include a CEX-DEX Quotes opportunity
-    #[arg(long = "cex-dex-min-profit-usd", default_value = "0.0")]
+    #[arg(long = "cex-dex-min-profit-usd", default_value = "1.5")]
     pub cex_dex_min_profit_threshold: f64,
+    /// Minimum profit in USD to include a CEX-DEX Quotes opportunity when the
+    /// searcher is known (labelled or significant historical activity). Allows
+    /// negative values for low-latency chains.
+    #[arg(long = "cex-dex-known-min-profit-usd", default_value = "0.0")]
+    pub cex_dex_known_min_profit_threshold: f64,
     /// Wether or not to use a fallback server.
     #[arg(long, default_value_t = false)]
     pub enable_fallback:      bool,
@@ -186,6 +191,7 @@ impl RunArgs {
             self.cex_exchanges,
             trade_config,
             self.cex_dex_min_profit_threshold,
+            self.cex_dex_known_min_profit_threshold,
             self.with_metrics,
         );
 

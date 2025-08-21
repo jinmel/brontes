@@ -80,6 +80,7 @@ pub struct CexDexQuotesInspector<'db, DB: LibmdbxReader> {
     _quotes_fetch_offset: u64,
     _cex_exchanges:       Vec<CexExchange>,
     min_profit_threshold_usd: f64,
+    known_min_profit_threshold_usd: f64,
 }
 
 impl<'db, DB: LibmdbxReader> CexDexQuotesInspector<'db, DB> {
@@ -97,6 +98,7 @@ impl<'db, DB: LibmdbxReader> CexDexQuotesInspector<'db, DB> {
         cex_exchanges: &[CexExchange],
         quotes_fetch_offset: u64,
         min_profit_threshold_usd: f64,
+        known_min_profit_threshold_usd: f64,
         metrics: Option<OutlierMetrics>,
         profit_metrics: Option<ProfitMetrics>,
     ) -> Self {
@@ -105,6 +107,7 @@ impl<'db, DB: LibmdbxReader> CexDexQuotesInspector<'db, DB> {
             _quotes_fetch_offset: quotes_fetch_offset,
             _cex_exchanges:       cex_exchanges.to_owned(),
             min_profit_threshold_usd,
+            known_min_profit_threshold_usd,
         }
     }
 }
@@ -490,7 +493,8 @@ impl<DB: LibmdbxReader> CexDexQuotesInspector<'_, DB> {
         let should_include_based_on_pnl =
             possible_cex_dex.pnl.aggregate_pnl > self.min_profit_threshold_usd;
 
-        let should_include_if_know_cex_dex = possible_cex_dex.pnl.aggregate_pnl > 0.0;
+        let should_include_if_know_cex_dex =
+            possible_cex_dex.pnl.aggregate_pnl > self.known_min_profit_threshold_usd;
 
         let is_cex_dex_based_on_historical_activity = (is_cex_dex_bot_with_significant_activity
             || is_labelled_cex_dex_bot)

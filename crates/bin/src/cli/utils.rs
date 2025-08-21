@@ -173,6 +173,7 @@ pub fn init_inspectors<DB: LibmdbxReader>(
     cex_exchanges: Vec<CexExchange>,
     trade_config: CexDexTradeConfig,
     cex_dex_min_profit_threshold_usd: f64,
+    cex_dex_known_min_profit_threshold_usd: f64,
     metrics: bool,
 ) -> &'static [&'static dyn Inspector<Result = Vec<Bundle>>] {
     let mut res = Vec::new();
@@ -189,6 +190,7 @@ pub fn init_inspectors<DB: LibmdbxReader>(
             &cex_exchanges,
             trade_config,
             cex_dex_min_profit_threshold_usd,
+            cex_dex_known_min_profit_threshold_usd,
             metrics.clone(),
             profit_metrics.clone(),
         ));
