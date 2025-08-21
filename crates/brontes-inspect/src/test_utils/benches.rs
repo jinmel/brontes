@@ -48,6 +48,8 @@ impl InspectorBenchUtils {
                     self.classifier_inspector.libmdbx,
                     &[CexExchange::Binance],
                     CexDexTradeConfig::default(),
+                    0.0,
+                    0.0,
                     None,
                     None,
                 )
@@ -100,6 +102,8 @@ impl InspectorBenchUtils {
             self.classifier_inspector.libmdbx,
             &[CexExchange::Binance],
             CexDexTradeConfig::default(),
+            0.0,
+            0.0,
             None,
             None,
         );
@@ -164,6 +168,8 @@ impl InspectorBenchUtils {
             self.classifier_inspector.libmdbx,
             &[CexExchange::Binance],
             CexDexTradeConfig::default(),
+            0.0,
+            0.0,
             None,
             None,
         );
@@ -219,6 +225,8 @@ impl InspectorBenchUtils {
             self.classifier_inspector.libmdbx,
             &[CexExchange::Binance],
             CexDexTradeConfig::default(),
+            0.0,
+            0.0,
             None,
             None,
         );
@@ -267,6 +275,8 @@ impl InspectorBenchUtils {
                     self.classifier_inspector.libmdbx,
                     &[CexExchange::Binance],
                     CexDexTradeConfig::default(),
+                    0.0,
+                    0.0,
                     None,
                     None,
                 )
@@ -327,6 +337,8 @@ impl InspectorBenchUtils {
                     self.classifier_inspector.libmdbx,
                     &[CexExchange::Binance],
                     CexDexTradeConfig::default(),
+                    0.0,
+                    0.0,
                     None,
                     None,
                 )

@@ -168,6 +168,8 @@ impl InspectorTestUtils {
                 CexExchange::Kucoin,
             ],
             CexDexTradeConfig::default(),
+            0.0,
+            0.0,
             None,
             None,
         );
@@ -259,6 +261,8 @@ impl InspectorTestUtils {
                 CexExchange::Upbit,
             ],
             cex_trade_config,
+            0.0,
+            0.0,
             None,
             None,
         );
@@ -369,6 +373,8 @@ impl InspectorTestUtils {
                     self.classifier_inspector.libmdbx,
                     &[CexExchange::Binance],
                     CexDexTradeConfig::default(),
+                    0.0,
+                    0.0,
                     None,
                     None,
                 )
