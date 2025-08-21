@@ -51,7 +51,6 @@ use alloy_primitives::Address;
 use brontes_database::libmdbx::LibmdbxReader;
 use brontes_metrics::inspectors::{OutlierMetrics, ProfitMetrics};
 use brontes_types::{
-    constants::CEX_DEX_MIN_PROFIT_THRESHOLD_USD,
     db::cex::{quotes::FeeAdjustedQuote, CexExchange},
     display::utils::format_etherscan_url,
     mev::{Bundle, BundleData, MevType},
@@ -80,6 +79,7 @@ pub struct CexDexQuotesInspector<'db, DB: LibmdbxReader> {
     utils:                SharedInspectorUtils<'db, DB>,
     _quotes_fetch_offset: u64,
     _cex_exchanges:       Vec<CexExchange>,
+    min_profit_threshold_usd: f64,
 }
 
 impl<'db, DB: LibmdbxReader> CexDexQuotesInspector<'db, DB> {
@@ -96,6 +96,7 @@ impl<'db, DB: LibmdbxReader> CexDexQuotesInspector<'db, DB> {
         db: &'db DB,
         cex_exchanges: &[CexExchange],
         quotes_fetch_offset: u64,
+        min_profit_threshold_usd: f64,
         metrics: Option<OutlierMetrics>,
         profit_metrics: Option<ProfitMetrics>,
     ) -> Self {
@@ -103,6 +104,7 @@ impl<'db, DB: LibmdbxReader> CexDexQuotesInspector<'db, DB> {
             utils:                SharedInspectorUtils::new(quote, db, metrics, profit_metrics),
             _quotes_fetch_offset: quotes_fetch_offset,
             _cex_exchanges:       cex_exchanges.to_owned(),
+            min_profit_threshold_usd,
         }
     }
 }
@@ -486,7 +488,7 @@ impl<DB: LibmdbxReader> CexDexQuotesInspector<'_, DB> {
         let is_labelled_cex_dex_bot = info.is_labelled_searcher_of_type(MevType::CexDexQuotes);
 
         let should_include_based_on_pnl =
-            possible_cex_dex.pnl.aggregate_pnl > CEX_DEX_MIN_PROFIT_THRESHOLD_USD;
+            possible_cex_dex.pnl.aggregate_pnl > self.min_profit_threshold_usd;
 
         let should_include_if_know_cex_dex = possible_cex_dex.pnl.aggregate_pnl > 0.0;
 
