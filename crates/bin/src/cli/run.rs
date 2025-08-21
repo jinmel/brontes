@@ -33,7 +33,7 @@ pub struct RunArgs {
     #[arg(long, short)]
     pub end_block:   Option<u64>,
     /// starts running at tip from where brontes was last left at.
-    #[arg(long, default_value_t = false)]
+    #[arg(long, default_value_t = false, action = clap::ArgAction::SetTrue)]
     pub from_db_tip: bool,
     /// Optional Multiple Ranges, format: "start1-end1 start2-end2 ..."
     /// Use this if you want to specify the exact, non continuous block ranges
@@ -73,22 +73,22 @@ pub struct RunArgs {
     pub cex_exchanges:        Vec<CexExchange>,
     /// Force DEX price calculation for every block, ignoring existing database
     /// values.
-    #[arg(long, short, default_value = "false")]
+    #[arg(long, short, default_value_t = false, action = clap::ArgAction::SetTrue)]
     pub force_dex_pricing:    bool,
     /// Disables DEX pricing. Inspectors needing DEX prices will only calculate
     /// token PnL, not USD PnL, if DEX pricing is unavailable in the
     /// database.
-    #[arg(long, default_value = "false")]
+    #[arg(long, default_value_t = false, action = clap::ArgAction::SetTrue)]
     pub force_no_dex_pricing: bool,
     /// Number of blocks to lag behind the chain tip when processing.
     #[arg(long, default_value = "10")]
     pub behind_tip:           u64,
     /// Legacy, run in CLI only mode (no TUI) - will output progress bars to
     /// stdout
-    #[arg(long, default_value = "true")]
+    #[arg(long, default_value_t = true, action = clap::ArgAction::SetTrue)]
     pub cli_only:             bool,
     /// Export metrics
-    #[arg(long, default_value = "false")]
+    #[arg(long, default_value_t = false, action = clap::ArgAction::SetTrue)]
     pub with_metrics:         bool,
     /// Minimum profit in USD to include a CEX-DEX Quotes opportunity
     #[arg(long = "cex-dex-min-profit-usd", default_value = "1.5")]
@@ -99,7 +99,7 @@ pub struct RunArgs {
     #[arg(long = "cex-dex-known-min-profit-usd", default_value = "0.0")]
     pub cex_dex_known_min_profit_threshold: f64,
     /// Wether or not to use a fallback server.
-    #[arg(long, default_value_t = false)]
+    #[arg(long, default_value_t = false, action = clap::ArgAction::SetTrue)]
     pub enable_fallback:      bool,
     /// Address of the fallback server.
     /// Triggers database writes if the main connection fails, preventing data
@@ -114,7 +114,7 @@ pub struct RunArgs {
     pub run_id:               Option<u64>,
 
     /// shows a cool display at startup
-    #[arg(long, short, default_value_t = false)]
+    #[arg(long, short, default_value_t = false, action = clap::ArgAction::SetTrue)]
     pub waterfall: bool,
 }
 
@@ -317,92 +317,92 @@ fn parse_ranges(ranges: &[String]) -> Result<Vec<(u64, u64)>, String> {
 pub struct TimeWindowArgs {
     /// The initial sliding time window (BEFORE) for cex prices or trades
     /// relative to the block timestamp
-    #[arg(long = "initial-pre", default_value = "0.05")]
+    #[arg(long = "initial-pre", default_value_t = 0.05_f64)]
     pub initial_vwap_pre: f64,
 
     /// The initial sliding time window (AFTER) for cex prices or trades
     /// relative to the block timestamp
-    #[arg(long = "initial-post", default_value = "0.05")]
+    #[arg(long = "initial-post", default_value_t = 0.05_f64)]
     pub initial_vwap_post: f64,
 
     /// The maximum sliding time window (BEFORE) for cex prices or trades
     /// relative to the block timestamp
-    #[arg(long = "max-vwap-pre", short = 'b', default_value = "10.0")]
+    #[arg(long = "max-vwap-pre", short = 'b', default_value_t = 10.0_f64)]
     pub max_vwap_pre: f64,
 
     /// The maximum sliding time window (AFTER) for cex prices or trades
     /// relative to the block timestamp
-    #[arg(long = "max-vwap-post", short = 'a', default_value = "20.0")]
+    #[arg(long = "max-vwap-post", short = 'a', default_value_t = 20.0_f64)]
     pub max_vwap_post: f64,
 
     /// Defines how much to extend the post-block time window before the
     /// pre-block.
-    #[arg(long = "vwap-scaling-diff", default_value = "0.3")]
+    #[arg(long = "vwap-scaling-diff", default_value_t = 0.3_f64)]
     pub vwap_scaling_diff: f64,
 
     /// Size of each extension to the vwap calculations time window
-    #[arg(long = "vwap-time-step", default_value = "0.01")]
+    #[arg(long = "vwap-time-step", default_value_t = 0.01_f64)]
     pub vwap_time_step: f64,
 
     /// Use block time weights to favour prices closer to the block time
-    #[arg(long = "weights-vwap", default_value = "true")]
+    #[arg(long = "weights-vwap", default_value_t = true)]
     pub block_time_weights_vwap: bool,
 
     /// Rate of decay of bi-exponential decay function see calculate_weight in
     /// brontes_types::db::cex
-    #[arg(long = "weights-pre-vwap", default_value = "-0.0000005")]
+    #[arg(long = "weights-pre-vwap", default_value_t = -0.0000005_f64)]
     pub pre_decay_weight_vwap: f64,
 
     /// Rate of decay of bi-exponential decay function see calculate_weight in
     /// brontes_types::db::ce
-    #[arg(long = "weights-post-vwap", default_value = "-0.0000002")]
+    #[arg(long = "weights-post-vwap", default_value_t = -0.0000002_f64)]
     pub post_decay_weight_vwap: f64,
 
     /// The initial time window (BEFORE) for cex prices or trades relative to
     /// the block timestamp for fully optimistic calculations
-    #[arg(long = "initial-op-pre", default_value = "0.05")]
+    #[arg(long = "initial-op-pre", default_value_t = 0.05_f64)]
     pub initial_optimistic_pre: f64,
 
     /// The initial time window (AFTER) for cex prices or trades relative to the
     /// block timestamp for fully optimistic calculations
-    #[arg(long = "initial-op-post", default_value = "0.3")]
+    #[arg(long = "initial-op-post", default_value_t = 0.3_f64)]
     pub initial_optimistic_post: f64,
 
     /// The maximum time window (BEFORE) for cex prices or trades relative to
     /// the block timestamp for fully optimistic calculations
-    #[arg(long = "max-op-pre", default_value = "5.0")]
+    #[arg(long = "max-op-pre", default_value_t = 5.0_f64)]
     pub max_optimistic_pre: f64,
 
     /// The maximum time window (AFTER) for cex prices or trades relative to the
     /// block timestamp for fully optimistic calculations
-    #[arg(long = "max-op-post", default_value = "10.0")]
+    #[arg(long = "max-op-post", default_value_t = 10.0_f64)]
     pub max_optimistic_post: f64,
 
     /// Defines how much to extend the post-block time window before the
     /// pre-block.
-    #[arg(long = "optimistic-scaling-diff", default_value = "0.2")]
+    #[arg(long = "optimistic-scaling-diff", default_value_t = 0.2_f64)]
     pub optimistic_scaling_diff: f64,
 
     /// Size of each extension to the optimistic calculations time window
-    #[arg(long = "optimistic-time-step", default_value = "0.1")]
+    #[arg(long = "optimistic-time-step", default_value_t = 0.1_f64)]
     pub optimistic_time_step: f64,
 
     /// Use block time weights to favour prices closer to the block time
-    #[arg(long = "weights-op", default_value = "true")]
+    #[arg(long = "weights-op", default_value_t = true)]
     pub block_time_weights_optimistic: bool,
 
     /// Rate of decay of bi-exponential decay function see calculate_weight in
     /// brontes_types::db::cex
-    #[arg(long = "weights-pre-op", default_value = "-0.0000003")]
+    #[arg(long = "weights-pre-op", default_value_t = -0.0000003_f64)]
     pub pre_decay_weight_optimistic: f64,
 
     /// Rate of decay of bi-exponential decay function see calculate_weight in
-    /// brontes_types::db::ce
-    #[arg(long = "weights-post-op", default_value = "-0.00000012")]
+    /// brontes_types::db::cex
+    #[arg(long = "weights-post-op", default_value_t = -0.00000012_f64)]
     pub post_decay_weight_optimistic: f64,
 
     /// Cex Dex Quotes price time offset from block timestamp
-    #[arg(long = "quote-offset", default_value = "0.0")]
+    #[arg(long = "quote-offset", default_value_t = 0.0_f64)]
     pub quote_offset: f64,
 }
 
