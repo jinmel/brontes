@@ -3,8 +3,11 @@ use futures::Future;
 
 use crate::{
     db::{
-        address_metadata::AddressMetadata, block_analysis::BlockAnalysis, builder::BuilderInfo,
-        dex::DexQuotes, searcher::SearcherInfo,
+        address_metadata::AddressMetadata,
+        block_analysis::BlockAnalysis,
+        builder::BuilderInfo,
+        dex::{DexQuotes, DexVolume},
+        searcher::SearcherInfo,
     },
     mev::{Bundle, MevBlock},
     normalized_actions::Action,
@@ -32,6 +35,13 @@ pub trait DBWriter: Send + Unpin + 'static {
         quotes: Option<DexQuotes>,
     ) -> impl Future<Output = eyre::Result<()>> + Send {
         self.inner().write_dex_quotes(block_number, quotes)
+    }
+
+    fn write_dex_volumes(
+        &self,
+        volumes: Vec<DexVolume>,
+    ) -> impl Future<Output = eyre::Result<()>> + Send {
+        self.inner().write_dex_volumes(volumes)
     }
 
     fn write_token_info(
