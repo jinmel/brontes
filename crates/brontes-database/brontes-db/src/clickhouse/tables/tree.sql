@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS brontes.tree
     `trace_nodes.trace_address` Array(Array(UInt64)),
     `trace_nodes.action_kind` Array(Nullable(String)),
     `trace_nodes.action` Array(Nullable(String)),
-    `run_id` UInt64
+    `run_id` UInt64,
+    `timeboosted` Bool,
 )
 ENGINE = MergeTree()
 PRIMARY KEY (`block_number`, `tx_hash`)
