@@ -55,3 +55,4 @@ t.json
 database/
 
 .envrc
+.serena
