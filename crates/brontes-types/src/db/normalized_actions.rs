@@ -15,6 +15,7 @@ pub struct TransactionRoot {
     pub to_address:   Option<Address>,
     pub gas_details:  GasDetails,
     pub trace_nodes:  Vec<TraceNode>,
+    pub timeboosted:  bool,
 }
 
 impl From<(&Root<Action>, u64)> for TransactionRoot {
@@ -32,6 +33,7 @@ impl From<(&Root<Action>, u64)> for TransactionRoot {
             tx_idx: root.position,
             gas_details: root.gas_details,
             trace_nodes,
+            timeboosted: root.timeboosted,
         }
     }
 }
@@ -78,6 +80,7 @@ impl Serialize for TransactionRoot {
         ser_struct.serialize_field("trace_nodes.trace_address", &trace_address)?;
         ser_struct.serialize_field("trace_nodes.action_kind", &action_kind)?;
         ser_struct.serialize_field("trace_nodes.action", &action)?;
+        ser_struct.serialize_field("timeboosted", &self.timeboosted)?;
 
         ser_struct.end()
     }
@@ -95,6 +98,7 @@ impl DbRow for TransactionRoot {
         "trace_nodes.trace_address",
         "trace_nodes.action_kind",
         "trace_nodes.action",
+        "timeboosted",
     ];
 }
 
