@@ -1,9 +1,9 @@
 #!/bin/sh
 
-RUST_LOG="brontes=warn,brontes_inspect::mev_inspectors::cex_dex::markout=info" cargo run --features arbitrum -- \
+RUST_LOG="brontes=warn,brontes_inspect::mev_inspectors::cex_dex::markout=info" cargo run --features arbitrum --release -- \
 run \
 --with-metrics \
---behind-tip 100 \
+--behind-tip 50 \
 --initial-pre 0.0005 \
 --initial-post 0.004 \
 --max-vwap-pre 1.0 \
