@@ -81,7 +81,7 @@ impl ClickhouseHandle for ClickhouseHttpClient {
         _: BlockHash,
         _: Vec<TxHash>,
         quote_asset: Address,
-        include_relay: bool,
+        _include_relay: bool,
     ) -> eyre::Result<Metadata> {
         let block_meta = self
             .query_many_range::<BlockInfo, BlockInfoData>(block_num, block_num + 1)
@@ -122,7 +122,7 @@ impl ClickhouseHandle for ClickhouseHttpClient {
                 eth_price.unwrap_or_default(),
                 block_meta.value.private_flow.into_iter().collect(),
             );
-            metadata.into_metadata(cex_quotes.value, dex_quotes, None, None)
+            metadata.into_metadata(cex_quotes.value, dex_quotes, None, None, None)
         })
     }
 

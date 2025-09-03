@@ -1542,6 +1542,7 @@ dependencies = [
  "brontes-tracing",
  "brontes-types",
  "cfg-if",
+ "chrono",
  "clap",
  "clickhouse",
  "colored",

@@ -25,7 +25,7 @@ use crate::{
     db::{clickhouse_serde::dex::dex_quote, redefined_types::malachite::RationalRedefined},
     implement_table_value_codecs_with_zc,
     pair::{Pair, PairRedefined},
-    FastHashMap,
+    FastHashMap, Protocol,
 };
 
 /// Represents the DEX prices of a token pair before (`pre_state`) and after a
@@ -454,4 +454,11 @@ impl DexQuotesWithBlockNumber {
             .map(|(i, quote)| DexQuotesWithBlockNumber { block_number, tx_idx: i as u64, quote })
             .collect_vec()
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Row, Eq, Deserialize, Serialize)]
+pub struct DexVolume {
+    pub block_number: u64,
+    pub protocol:     Protocol,
+    pub volume_usd:   f64,
 }

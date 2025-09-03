@@ -1,7 +1,7 @@
 use brontes_types::{
     db::{
         address_to_protocol_info::ProtocolInfoClickhouse, block_analysis::BlockAnalysis,
-        dex::DexQuotesWithBlockNumber, normalized_actions::TransactionRoot,
+        dex::{DexQuotesWithBlockNumber, DexVolume}, normalized_actions::TransactionRoot,
         token_info::TokenInfoWithAddress, DbDataWithRunId, RunId,
     },
     mev::*,
@@ -26,7 +26,8 @@ clickhouse_dbms!(
         BrontesToken_Info,
         EthereumPools,
         BrontesTree,
-        BrontesRun_Id
+        BrontesRun_Id,
+        DexDex_Volumes
     ]
 );
 
@@ -152,6 +153,13 @@ remote_clickhouse_table!(
     "crates/brontes-database/brontes-db/src/clickhouse/tables/"
 );
 
+remote_clickhouse_table!(
+    BrontesClickhouseTables,
+    [Dex, Dex_Volumes],
+    DexVolume,
+    "crates/brontes-database/brontes-db/src/clickhouse/tables/"
+);
+
 pub struct BrontesClickhouseData {
     pub data:         BrontesClickhouseTableDataTypes,
     pub force_insert: bool,
@@ -243,5 +251,6 @@ db_types!(
     (ProtocolInfoClickhouse, EthereumPools, false),
     (TransactionRoot, BrontesTree, true),
     (BlockAnalysis, BrontesBlock_Analysis, true),
-    (RunId, BrontesRun_Id, false)
+    (RunId, BrontesRun_Id, false),
+    (DexVolume, DexDex_Volumes, false)
 );

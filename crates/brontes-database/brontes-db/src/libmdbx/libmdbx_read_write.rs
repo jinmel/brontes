@@ -10,7 +10,7 @@ use brontes_types::{
         address_to_protocol_info::ProtocolInfo,
         builder::BuilderInfo,
         cex::{quotes::CexPriceMap, trades::CexTradeMap},
-        dex::{make_filter_key_range, DexPrices, DexQuotes},
+        dex::{make_filter_key_range, DexPrices, DexQuotes, DexVolume},
         initialized_state::{
             InitializedStateMeta, CEX_QUOTES_FLAG, CEX_TRADES_FLAG, DATA_NOT_PRESENT_NOT_AVAILABLE,
             DATA_PRESENT, DEX_PRICE_FLAG, META_FLAG,
@@ -514,7 +514,11 @@ impl LibmdbxReader for LibmdbxReadWriter {
 
     #[brontes_macros::metrics_call(ptr=metrics,scope, db_read, "try_fetch_token_info")]
     fn try_fetch_token_info(&self, og_address: Address) -> eyre::Result<TokenInfoWithAddress> {
-        let address = if constants::ETH_ADDRESSES.contains(&og_address) { constants::WETH_ADDRESS } else { og_address };
+        let address = if constants::ETH_ADDRESSES.contains(&og_address) {
+            constants::WETH_ADDRESS
+        } else {
+            og_address
+        };
 
         self.db
             .view_db(|tx| match self.cache.token_info(true, |lock| lock.get(&address)) {
@@ -1004,6 +1008,10 @@ impl DBWriter for LibmdbxReadWriter {
         Ok(self
             .tx
             .send(WriterMessage::DexQuotes { block_number, quotes }.stamp())?)
+    }
+
+    async fn write_dex_volumes(&self, _volumes: Vec<DexVolume>) -> eyre::Result<()> {
+        Ok(())
     }
 
     async fn write_token_info(

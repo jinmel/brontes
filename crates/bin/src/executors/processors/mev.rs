@@ -10,15 +10,20 @@ use brontes_inspect::{
 use brontes_types::frontend_prunes::{
     remove_burn_transfers, remove_collect_transfers, remove_mint_transfers, remove_swap_transfers,
 };
-#[cfg(feature = "local-clickhouse")]
-use brontes_types::normalized_actions::Action;
-#[cfg(feature = "local-clickhouse")]
-use brontes_types::tree::BlockTree;
 use brontes_types::{
-    db::block_analysis::BlockAnalysis,
+    constants::{USDT_ADDRESS, WETH_ADDRESS},
+    db::{
+        block_analysis::BlockAnalysis,
+        dex::{BlockPrice, DexVolume},
+        metadata::Metadata,
+    },
     execute_on,
     mev::{Bundle, MevBlock, MevType},
-    BlockData, MultiBlockData,
+    normalized_actions::{Action, NormalizedSwapWithFee},
+    pair::Pair,
+    tree::{BlockTree, TreeSearchBuilder},
+    utils::ToFloatNearest,
+    BlockData, FastHashMap, MultiBlockData, Protocol,
 };
 use tracing::debug;
 
@@ -43,6 +48,11 @@ impl Processor for MevProcessor {
             .await
         {
             tracing::error!(err=%e, block_num=metadata.block_num, "failed to insert dex pricing and state into db");
+        }
+
+        let volumes = calculate_dex_volumes(&tree, &metadata);
+        if let Err(e) = db.write_dex_volumes(volumes).await {
+            tracing::error!(err=%e, block_num=metadata.block_num, "failed to insert dex volumes into db");
         }
 
         #[cfg(feature = "local-clickhouse")]
@@ -72,6 +82,42 @@ async fn insert_tree<DB: DBWriter + LibmdbxReader>(
     if let Err(e) = db.insert_tree(tree_owned).await {
         tracing::error!(err=%e, %block_num, "failed to insert tree into db");
     }
+}
+
+fn calculate_dex_volumes(tree: &BlockTree<Action>, meta: &Metadata) -> Vec<DexVolume> {
+    let Some(quotes) = meta.dex_quotes.as_ref() else { return Vec::new() };
+    let mut volumes: FastHashMap<Protocol, f64> = FastHashMap::default();
+    let eth_price = meta.get_eth_price(USDT_ADDRESS);
+
+    for (_tx, actions) in tree
+        .clone()
+        .collect_all(TreeSearchBuilder::default().with_action(Action::is_swap))
+    {
+        for action in actions {
+            let swap = match action {
+                Action::Swap(s) => s,
+                Action::SwapWithFee(NormalizedSwapWithFee { swap, .. }) => swap,
+                _ => continue,
+            };
+
+            if let Some(price_in_weth) = quotes
+                .price_for_block(Pair(swap.token_in.address, WETH_ADDRESS), BlockPrice::Average)
+            {
+                let price_usd = price_in_weth * eth_price.clone();
+                let volume = (swap.amount_in.clone() * price_usd).to_float();
+                *volumes.entry(swap.protocol).or_default() += volume;
+            }
+        }
+    }
+
+    volumes
+        .into_iter()
+        .map(|(protocol, volume_usd)| DexVolume {
+            block_number: meta.block_num(),
+            protocol,
+            volume_usd,
+        })
+        .collect()
 }
 
 async fn insert_mev_results<DB: DBWriter + LibmdbxReader>(

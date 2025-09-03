@@ -17,7 +17,12 @@ use brontes_types::{
             trades::{CexTradesConverter, RawCexTrades},
             BestCexPerPair,
         },
-        dex::{DexQuotes, DexQuotesWithBlockNumber},
+        clickhouse_serde::tx_trace::{
+            ClickhouseCallAction, ClickhouseCallOutput, ClickhouseCreateAction,
+            ClickhouseCreateOutput, ClickhouseDecodedCallData, ClickhouseLogs,
+            ClickhouseRewardAction, ClickhouseSelfDestructAction,
+        },
+        dex::{DexQuotes, DexQuotesWithBlockNumber, DexVolume},
         metadata::{BlockMetadata, BlockMetadataInner, Metadata},
         normalized_actions::TransactionRoot,
         searcher::SearcherInfo,
@@ -40,25 +45,18 @@ use db_interfaces::{
 };
 use eyre::Result;
 use futures::future::ok;
-use itertools::Itertools;
-use itertools::izip;
+use itertools::{izip, Itertools};
 use reth_primitives::{BlockHash, TxHash};
 use serde::{Deserialize, Serialize};
 use tokio::{sync::mpsc::UnboundedSender, time::Duration};
 use tracing::{debug, error, warn};
-use brontes_types::db::clickhouse_serde::tx_trace::{
-    ClickhouseCallAction, ClickhouseCallOutput, ClickhouseCreateAction,
-    ClickhouseCreateOutput, ClickhouseDecodedCallData, ClickhouseLogs,
-    ClickhouseRewardAction, ClickhouseSelfDestructAction,
-};
-use super::tx_traces::{
-    MetaTuple, TxTraceRow,
-    TxTraceTuple,
-};
 
 use super::{
-    cex_config::CexDownloadConfig, dbms::*, ClickhouseHandle, MOST_VOLUME_PAIR_EXCHANGE,
-    P2P_OBSERVATIONS, PRIVATE_FLOW, RAW_CEX_QUOTES, RAW_CEX_TRADES,
+    cex_config::CexDownloadConfig,
+    dbms::*,
+    tx_traces::{MetaTuple, TxTraceRow, TxTraceTuple},
+    ClickhouseHandle, MOST_VOLUME_PAIR_EXCHANGE, P2P_OBSERVATIONS, PRIVATE_FLOW, RAW_CEX_QUOTES,
+    RAW_CEX_TRADES,
 };
 #[cfg(feature = "local-clickhouse")]
 use super::{BLOCK_TIMES, CEX_SYMBOLS};
@@ -233,6 +231,13 @@ impl Clickhouse {
             }
         }
 
+        Ok(())
+    }
+
+    pub async fn write_dex_volumes(&self, volumes: Vec<DexVolume>) -> eyre::Result<()> {
+        if let Some(tx) = self.buffered_insert_tx.as_ref() {
+            tx.send(volumes.into_iter().map(|v| (v, self.tip).into()).collect())?;
+        }
         Ok(())
     }
 
