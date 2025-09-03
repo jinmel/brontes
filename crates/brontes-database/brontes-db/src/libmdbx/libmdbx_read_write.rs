@@ -30,6 +30,7 @@ use brontes_types::{
 };
 use eyre::{eyre, ErrReport};
 use futures::Future;
+use std::pin::Pin;
 use indicatif::ProgressBar;
 use itertools::Itertools;
 use malachite::Rational;
@@ -513,11 +514,18 @@ impl LibmdbxReader for LibmdbxReadWriter {
     }
 
     #[brontes_macros::metrics_call(ptr=metrics,scope, db_read, "try_fetch_token_info")]
-    fn try_fetch_token_info(&self, og_address: Address) -> eyre::Result<TokenInfoWithAddress> {
-        let address = if constants::ETH_ADDRESSES.contains(&og_address) { constants::WETH_ADDRESS } else { og_address };
+    fn try_fetch_token_info(
+        &self,
+        og_address: Address,
+    ) -> Pin<Box<dyn Future<Output = eyre::Result<TokenInfoWithAddress>> + Send + '_>> {
+        Box::pin(async move {
+            let address = if constants::ETH_ADDRESSES.contains(&og_address) {
+                constants::WETH_ADDRESS
+            } else {
+                og_address
+            };
 
-        self.db
-            .view_db(|tx| match self.cache.token_info(true, |lock| lock.get(&address)) {
+            self.db.view_db(|tx| match self.cache.token_info(true, |lock| lock.get(&address)) {
                 Some(Some(e)) => {
                     let mut info = TokenInfoWithAddress { inner: e, address: og_address };
                     if constants::ETH_ADDRESSES.contains(&og_address) {
@@ -535,7 +543,6 @@ impl LibmdbxReader for LibmdbxReadWriter {
                     })?
                     .map(|inner| TokenInfoWithAddress { inner, address: og_address })
                     .map(|mut inner| {
-                        // quick patch
                         if constants::ETH_ADDRESSES.contains(&og_address) {
                             inner.symbol = "ETH".to_string();
                             inner
@@ -545,6 +552,7 @@ impl LibmdbxReader for LibmdbxReadWriter {
                     })
                     .ok_or_else(|| eyre::eyre!("entry for key {:?} in TokenDecimals", address)),
             })
+        })
     }
 
     #[brontes_macros::metrics_call(ptr=metrics,scope,db_read,"try_fetch_searcher_eoa_infos")]
