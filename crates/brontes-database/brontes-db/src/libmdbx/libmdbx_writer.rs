@@ -12,7 +12,7 @@ use brontes_types::{
         address_metadata::AddressMetadata,
         address_to_protocol_info::ProtocolInfo,
         builder::BuilderInfo,
-        dex::{make_key, DexQuoteWithIndex, DexQuotes},
+        dex::{make_key, DexQuoteWithIndex, DexQuotes, DexVolume},
         initialized_state::{DATA_PRESENT, DEX_PRICE_FLAG, TRACE_FLAG},
         mev_block::MevBlockWithClassified,
         pool_creation_block::PoolsToAddresses,
@@ -454,6 +454,10 @@ impl LibmdbxWriter {
             }
         }
 
+        Ok(())
+    }
+
+    fn write_dex_volumes(&mut self, _volumes: Vec<DexVolume>) -> eyre::Result<()> {
         Ok(())
     }
 
