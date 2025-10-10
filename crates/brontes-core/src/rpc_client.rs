@@ -1,14 +1,14 @@
-//! A temporary custom RPC client implementation for Brontes tracer.
+//! A custom RPC client implementation for transaction tracing.
 //!
-//! This module provides a custom RPC client implementation specifically for the
-//! Brontes tracer, as the functionality needed (particularly
-//! debug_traceBlockByHash and debug_traceBlockByNumber) is not currently
-//! supported by the alloy provider.
+//! This module provides a custom RPC client implementation for transaction
+//! tracing, as the functionality needed (particularly debug_traceBlockByHash
+//! and debug_traceBlockByNumber) is not currently supported by the alloy
+//! provider.
 //!
-//! The client handles JSON-RPC communication with Ethereum nodes, specifically
-//! focusing on transaction tracing functionality. It provides methods for
-//! tracing blocks by hash or number, and includes comprehensive error handling
-//! and logging for debugging purposes.
+//! The client handles JSON-RPC communication with Ethereum nodes using the
+//! callTracer format, transforming the output into a parity-compatible trace
+//! format. It provides methods for tracing blocks by hash or number, and
+//! includes comprehensive error handling and logging for debugging purposes.
 //!
 //! Note: This is a temporary solution until the alloy provider adds support for
 //! these tracing methods.
@@ -18,9 +18,17 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
-use brontes_types::structured_trace::TxTrace;
+use alloy_primitives::{Address as AlloyAddress, Log, LogData, U256};
+use brontes_types::{
+    serde_utils::option_u256,
+    structured_trace::{TransactionTraceWithLogs, TxTrace},
+};
 use reqwest::{Client, Error as ReqwestError};
-use reth_primitives::{hex, B256};
+use reth_primitives::{hex, Address, Bytes, B256, U64};
+use reth_rpc_types::trace::parity::{
+    Action, CallAction, CallOutput, CallType, CreateAction, CreateOutput, TraceOutput,
+    TransactionTrace,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
@@ -74,13 +82,6 @@ struct JsonRpcResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct TraceResult {
-    tx_hash: B256,
-    result:  TxTrace,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 struct JsonRpcError {
     code:    i64,
     message: String,
@@ -88,7 +89,207 @@ struct JsonRpcError {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TraceOptions {
-    pub tracer: String,
+    pub tracer:        String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "tracerConfig")]
+    pub tracer_config: Option<TracerConfig>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TracerConfig {
+    #[serde(rename = "withLog")]
+    pub with_log: bool,
+}
+
+/// Geth's callTracer output format
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CallFrame {
+    #[serde(rename = "type")]
+    pub call_type: String,
+    pub from:      Address,
+    #[serde(default)]
+    pub to:        Option<Address>,
+    #[serde(default, with = "option_u256")]
+    pub value:     Option<U256>,
+    pub gas:       U64,
+    #[serde(rename = "gasUsed")]
+    pub gas_used:  U64,
+    pub input:     Bytes,
+    #[serde(default)]
+    pub output:    Option<Bytes>,
+    #[serde(default)]
+    pub error:     Option<String>,
+    #[serde(default)]
+    pub calls:     Option<Vec<CallFrame>>,
+    #[serde(default)]
+    pub logs:      Option<Vec<CallLog>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CallLog {
+    pub address:  Address,
+    pub topics:   Vec<B256>,
+    pub data:     Bytes,
+    #[serde(default)]
+    pub position: Option<String>,
+}
+
+/// Result from debug_traceBlockByHash/Number with callTracer
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CallTracerResult {
+    tx_hash: B256,
+    result:  CallFrame,
+}
+
+/// Transforms Geth's callTracer output into the parity trace format
+fn transform_call_frame_to_traces(
+    frame: CallFrame,
+    _tx_hash: B256,
+) -> Vec<TransactionTraceWithLogs> {
+    let mut traces = Vec::new();
+    let mut trace_idx = 0u64;
+
+    // Process the call frame recursively
+    flatten_call_frame(frame, vec![], &mut traces, &mut trace_idx, None);
+
+    traces
+}
+
+/// Recursively flattens the nested call frame structure into a flat array of
+/// traces
+fn flatten_call_frame(
+    frame: CallFrame,
+    trace_address: Vec<usize>,
+    traces: &mut Vec<TransactionTraceWithLogs>,
+    trace_idx: &mut u64,
+    _parent_msg_sender: Option<Address>,
+) {
+    let current_trace_idx = *trace_idx;
+    *trace_idx += 1;
+
+    let call_type_str = frame.call_type.to_uppercase();
+    let is_delegate_call = call_type_str == "DELEGATECALL";
+    let is_create = call_type_str == "CREATE" || call_type_str == "CREATE2";
+
+    let value = frame.value.unwrap_or(U256::ZERO);
+
+    // Convert logs from CallLog to alloy Log
+    let logs: Vec<Log> = frame
+        .logs
+        .as_ref()
+        .map(|logs| {
+            logs.iter()
+                .map(|log| Log {
+                    address: AlloyAddress::from_slice(log.address.as_slice()),
+                    data:    LogData::new_unchecked(log.topics.clone(), log.data.clone()),
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    // Build the action
+    let action = if is_create {
+        Action::Create(CreateAction {
+            from: frame.from,
+            value,
+            gas: frame.gas,
+            init: frame.input.clone(),
+        })
+    } else {
+        let call_type = match call_type_str.as_str() {
+            "CALL" => CallType::Call,
+            "STATICCALL" => CallType::StaticCall,
+            "DELEGATECALL" => CallType::DelegateCall,
+            "CALLCODE" => CallType::CallCode,
+            _ => CallType::Call,
+        };
+
+        Action::Call(CallAction {
+            from: frame.from,
+            to: frame.to.unwrap_or_default(),
+            value,
+            gas: frame.gas,
+            input: frame.input.clone(),
+            call_type,
+        })
+    };
+
+    // Build the result
+    let result = if frame.error.is_none() {
+        if is_create {
+            Some(TraceOutput::Create(CreateOutput {
+                gas_used: frame.gas_used,
+                code:     frame.output.clone().unwrap_or_default(),
+                address:  frame.to.unwrap_or_default(),
+            }))
+        } else {
+            Some(TraceOutput::Call(CallOutput {
+                gas_used: frame.gas_used,
+                output:   frame.output.clone().unwrap_or_default(),
+            }))
+        }
+    } else {
+        None
+    };
+
+    let num_children = frame.calls.as_ref().map(|c| c.len()).unwrap_or(0);
+
+    let trace = TransactionTrace {
+        action,
+        error: frame.error.clone(),
+        result,
+        trace_address: trace_address.clone(),
+        subtraces: num_children,
+    };
+
+    // Determine msg_sender using the correct logic:
+    // For DELEGATECALL: search backwards through traces to find the first
+    // non-delegatecall For other types: use the from address
+    let msg_sender = if is_delegate_call {
+        // Search backwards through existing traces to find first non-delegatecall
+        let mut found_msg_sender = None;
+        for prev_trace in traces.iter().rev() {
+            match &prev_trace.trace.action {
+                Action::Call(call) if call.call_type != CallType::DelegateCall => {
+                    found_msg_sender = Some(prev_trace.msg_sender);
+                    break;
+                }
+                Action::Create(_) => {
+                    found_msg_sender = Some(prev_trace.msg_sender);
+                    break;
+                }
+                _ => continue,
+            }
+        }
+        found_msg_sender.unwrap_or(frame.from)
+    } else {
+        frame.from
+    };
+
+    traces.push(TransactionTraceWithLogs {
+        trace,
+        logs,
+        msg_sender,
+        trace_idx: current_trace_idx,
+        decoded_data: None,
+    });
+
+    // Process child calls
+    if let Some(calls) = frame.calls {
+        for (idx, child_frame) in calls.into_iter().enumerate() {
+            let mut child_trace_address = trace_address.clone();
+            child_trace_address.push(idx);
+            flatten_call_frame(
+                child_frame,
+                child_trace_address,
+                traces,
+                trace_idx,
+                None, // Not used anymore - msg_sender is determined by searching backwards
+            );
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -157,9 +358,47 @@ impl RpcClient {
         trace_options: TraceOptions,
     ) -> Result<Vec<TxTrace>, RpcError> {
         let params = json!([format!("0x{}", hex::encode(block_hash)), trace_options]);
-        let result: Result<Vec<TraceResult>, RpcError> =
+
+        let result: Result<Vec<CallTracerResult>, RpcError> =
             self.call("debug_traceBlockByHash", params).await;
-        result.map(|traces| traces.into_iter().map(|trace| trace.result).collect())
+        result.map(|traces| {
+            traces
+                .into_iter()
+                .enumerate()
+                .map(|(tx_index, trace_result)| {
+                    // Transform callTracer output to parity format
+                    let traces =
+                        transform_call_frame_to_traces(trace_result.result, trace_result.tx_hash);
+
+                    // We need to get gas_used and other tx-level info from the trace
+                    // The root call's gas_used is the transaction's gas_used
+                    let gas_used = traces
+                        .first()
+                        .and_then(|t| match &t.trace.result {
+                            Some(TraceOutput::Call(c)) => Some(c.gas_used.to::<u128>()),
+                            Some(TraceOutput::Create(c)) => Some(c.gas_used.to::<u128>()),
+                            _ => None,
+                        })
+                        .unwrap_or(0);
+
+                    let is_success = traces
+                        .first()
+                        .map(|t| t.trace.error.is_none())
+                        .unwrap_or(false);
+
+                    TxTrace {
+                        block_number: 0, // Will be filled by caller if needed
+                        trace: traces,
+                        tx_hash: trace_result.tx_hash,
+                        gas_used,
+                        effective_price: 0, // Not available from callTracer
+                        tx_index: tx_index as u64,
+                        timeboosted: false,
+                        is_success,
+                    }
+                })
+                .collect()
+        })
     }
 
     pub async fn debug_trace_block_by_number(
@@ -168,10 +407,47 @@ impl RpcClient {
         trace_options: TraceOptions,
     ) -> Result<Vec<TxTrace>, RpcError> {
         let params = json!([format!("0x{:x}", block_number), trace_options]);
-        // First try to parse as a single TraceResult
-        let result: Result<Vec<TraceResult>, RpcError> =
+
+        let result: Result<Vec<CallTracerResult>, RpcError> =
             self.call("debug_traceBlockByNumber", params).await;
-        result.map(|traces| traces.into_iter().map(|trace| trace.result).collect())
+        result.map(|traces| {
+            traces
+                .into_iter()
+                .enumerate()
+                .map(|(tx_index, trace_result)| {
+                    // Transform callTracer output to parity format
+                    let traces =
+                        transform_call_frame_to_traces(trace_result.result, trace_result.tx_hash);
+
+                    // We need to get gas_used and other tx-level info from the trace
+                    // The root call's gas_used is the transaction's gas_used
+                    let gas_used = traces
+                        .first()
+                        .and_then(|t| match &t.trace.result {
+                            Some(TraceOutput::Call(c)) => Some(c.gas_used.to::<u128>()),
+                            Some(TraceOutput::Create(c)) => Some(c.gas_used.to::<u128>()),
+                            _ => None,
+                        })
+                        .unwrap_or(0);
+
+                    let is_success = traces
+                        .first()
+                        .map(|t| t.trace.error.is_none())
+                        .unwrap_or(false);
+
+                    TxTrace {
+                        block_number,
+                        trace: traces,
+                        tx_hash: trace_result.tx_hash,
+                        gas_used,
+                        effective_price: 0, // Not available from callTracer
+                        tx_index: tx_index as u64,
+                        timeboosted: false,
+                        is_success,
+                    }
+                })
+                .collect()
+        })
     }
 }
 
@@ -181,118 +457,174 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn test_trace_response_parsing() {
-        // The sample JSON response
-        let json_response = json!({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "result": [
-                {
-                    "txHash": "0xac11f10e2b9a822a5a986f1ddb0bf4618b99c40855870ff22f90776aa0682007",
-                    "result": {
-                        "gas_used": "0x0",
-                        "effective_price": "0x0",
-                        "block_number": 327340070,
-                        "trace": [],
-                        "tx_hash": "0xac11f10e2b9a822a5a986f1ddb0bf4618b99c40855870ff22f90776aa0682007",
-                        "tx_index": 0,
-                        "is_success": true
-                    }
-                },
-                {
-                    "txHash": "0xdbc9477ae5709d01af509d709a2a1413ed72ee5aeb83903bc33de8d09c39a09a",
-                    "result": {
-                        "gas_used": "0x925d5",
-                        "effective_price": "0x0",
-                        "block_number": 327340070,
-                        "trace": [
-                            {
-                                "trace": {
-                                    "type": "call",
-                                    "action": {
-                                        "callType": "call",
-                                        "from": "0xeb1a8834cf6ca6d721e5cb1a8ad472bbf62eef8e",
-                                        "gas": "0x1e84800",
-                                        "input": "0xc9807539000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000002600000000000000000000000000000000000000000000000000000000000000300000001010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001c0000000000000000000000074d0c0518667458577264b2aac15152b0007af060502050103070604080009000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000006b837000000000000000000000000000000000000000000000000000000000006b8c2d00000000000000000000000000000000000000000000000000000000006b8dd400000000000000000000000000000000000000000000000000000000006b8dd400000000000000000000000000000000000000000000000000000000006b8dd400000000000000000000000000000000000000000000000000000000006b8eca00000000000000000000000000000000000000000000000000000000006b918800000000000000000000000000000000000000000000000000000000006b91f600000000000000000000000000000000000000000000000000000000006bd28800000000000000000000000000000000000000000000000000000000006bd28800000000000000000000000000000000000000000000000000000000000000044d386f5b8f827dfce20681a96333dac17ddf3c8f9c10dbff95d77166d3bd74fdfaaa47e8c96aea3e67c4c2a3333009fa1ddc0338d624e7f1b6d14be4f044e58e2a9f43ee243b6da002e3eb70c9da6ce8895757f5649b7a751dd3a8cb11354634b085d04dc2fd504f10cf35a4ef131675ea8f424bac7e77276526bddf2c619c440000000000000000000000000000000000000000000000000000000000000004482f9b59a985a095b8e445a8f84a8799ebab63a0e1ad7037c7504f107f25541f0e57f8787e68a6c804c183efe6d1dbcc29df551c3bcb3a1f15b2d98d8ecdc81804c9171ee8cdac82bfce4b092f42107ce6fd4f849af257316ad9c75facf481967dec3be8b5b1f11d2eb4fb8d7dbdb61de520ba4ce4b431e0e7f2c9f7ccede0f1",
-                                        "to": "0x5ab0b1e2604d4b708721bc3cd1ce962958b4297e",
-                                        "value": "0x0"
-                                    },
-                                    "error": "",
-                                    "result": {
-                                        "gasUsed": 124036,
-                                        "output": "0x"
-                                    },
-                                    "subtraces": 0,
-                                    "traceAddress": []
-                                },
-                                "logs": [],
-                                "msg_sender": "0xeb1a8834cf6ca6d721e5cb1a8ad472bbf62eef8e",
-                                "trace_idx": 0
-                            }
-                        ],
-                        "tx_hash": "0xdbc9477ae5709d01af509d709a2a1413ed72ee5aeb83903bc33de8d09c39a09a",
-                        "tx_index": 1,
-                        "is_success": true
-                    }
+    /// Helper function to validate that transformed traces match expected
+    /// traces
+    fn assert_traces_equal(
+        transformed_traces: &[TransactionTraceWithLogs],
+        expected_traces: &[TransactionTraceWithLogs],
+    ) {
+        assert_eq!(
+            transformed_traces.len(),
+            expected_traces.len(),
+            "Trace count mismatch: transformed={}, expected={}",
+            transformed_traces.len(),
+            expected_traces.len()
+        );
+
+        for (idx, (transformed, expected_trace)) in transformed_traces
+            .iter()
+            .zip(expected_traces.iter())
+            .enumerate()
+        {
+            // Check trace_idx
+            assert_eq!(
+                transformed.trace_idx, expected_trace.trace_idx,
+                "Trace {} trace_idx mismatch",
+                idx
+            );
+
+            // Check trace_address
+            assert_eq!(
+                transformed.trace.trace_address, expected_trace.trace.trace_address,
+                "Trace {} trace_address mismatch",
+                idx
+            );
+
+            // Check subtraces count
+            assert_eq!(
+                transformed.trace.subtraces, expected_trace.trace.subtraces,
+                "Trace {} subtraces mismatch",
+                idx
+            );
+
+            // Check msg_sender
+            assert_eq!(
+                transformed.msg_sender, expected_trace.msg_sender,
+                "Trace {} msg_sender mismatch: transformed={:?}, expected={:?}",
+                idx, transformed.msg_sender, expected_trace.msg_sender
+            );
+
+            // Check action types match
+            match (&transformed.trace.action, &expected_trace.trace.action) {
+                (Action::Call(t_call), Action::Call(e_call)) => {
+                    assert_eq!(
+                        t_call.call_type, e_call.call_type,
+                        "Trace {} call_type mismatch",
+                        idx
+                    );
+                    assert_eq!(t_call.from, e_call.from, "Trace {} from address mismatch", idx);
+                    assert_eq!(t_call.to, e_call.to, "Trace {} to address mismatch", idx);
+                    assert_eq!(t_call.value, e_call.value, "Trace {} value mismatch", idx);
                 }
-            ]
-        });
+                (Action::Create(t_create), Action::Create(e_create)) => {
+                    assert_eq!(t_create.from, e_create.from, "Trace {} create from mismatch", idx);
+                    assert_eq!(
+                        t_create.value, e_create.value,
+                        "Trace {} create value mismatch",
+                        idx
+                    );
+                }
+                _ => {
+                    panic!(
+                        "Trace {} action type mismatch: transformed={:?}, expected={:?}",
+                        idx, transformed.trace.action, expected_trace.trace.action
+                    );
+                }
+            }
 
-        // Create a JsonRpcResponse from the JSON data
-        let json_string = json_response.to_string();
-        let rpc_response: JsonRpcResponse = serde_json::from_str(&json_string).unwrap();
+            // Check result field
+            match (&transformed.trace.result, &expected_trace.trace.result) {
+                (Some(TraceOutput::Call(t_output)), Some(TraceOutput::Call(e_output))) => {
+                    // Note: gas_used comparison skipped - may differ due to L2 specifics
+                    assert_eq!(
+                        t_output.output, e_output.output,
+                        "Trace {} result.output mismatch",
+                        idx
+                    );
+                }
+                (Some(TraceOutput::Create(t_output)), Some(TraceOutput::Create(e_output))) => {
+                    assert_eq!(t_output.code, e_output.code, "Trace {} result.code mismatch", idx);
+                    assert_eq!(
+                        t_output.address, e_output.address,
+                        "Trace {} result.address mismatch",
+                        idx
+                    );
+                }
+                (None, None) => {
+                    // Both have no result (error case)
+                }
+                _ => {
+                    panic!(
+                        "Trace {} result type mismatch: transformed={:?}, expected={:?}",
+                        idx, transformed.trace.result, expected_trace.trace.result
+                    );
+                }
+            }
 
-        // Verify the response fields
-        assert_eq!(rpc_response.jsonrpc, "2.0");
-        assert_eq!(rpc_response.id, 1);
-        assert!(rpc_response.error.is_none());
-        assert!(rpc_response.result.is_some());
+            // Check error field
+            assert_eq!(
+                transformed.trace.error, expected_trace.trace.error,
+                "Trace {} error mismatch",
+                idx
+            );
 
-        // Extract and parse the trace results
-        let trace_results: Vec<TraceResult> =
-            serde_json::from_value(rpc_response.result.unwrap()).unwrap();
+            // Check logs count
+            assert_eq!(
+                transformed.logs.len(),
+                expected_trace.logs.len(),
+                "Trace {} logs count mismatch",
+                idx
+            );
+        }
+    }
 
-        // Verify the trace results
-        assert_eq!(trace_results.len(), 2);
+    #[test]
+    fn test_transform_call_frame_to_traces() {
+        // Load actual callTracer output and expected brontes output
+        let call_json = include_str!("testdata/call.json");
+        let brontes_json = include_str!("testdata/brontes.json");
 
-        // First trace
-        let first_trace = &trace_results[0];
-        assert_eq!(
-            first_trace.tx_hash.to_string().to_lowercase(),
-            "0xac11f10e2b9a822a5a986f1ddb0bf4618b99c40855870ff22f90776aa0682007".to_lowercase()
+        let call_frame: CallFrame =
+            serde_json::from_str(call_json).expect("Failed to deserialize callTracer output");
+        let expected: TxTrace =
+            serde_json::from_str(brontes_json).expect("Failed to deserialize brontesTracer output");
+
+        // Transform callTracer to our format
+        let tx_hash = B256::from_slice(
+            &hex::decode("28a9692548a4f87d113338ba88d541e8092b21b141b4d614269d3354192ea87f")
+                .unwrap(),
         );
-        assert_eq!(first_trace.result.tx_index, 0);
-        assert_eq!(first_trace.result.block_number, 327340070);
-        assert!(first_trace.result.is_success);
-        assert!(first_trace.result.trace.is_empty());
+        let transformed_traces = transform_call_frame_to_traces(call_frame, tx_hash);
 
-        // Second trace
-        let second_trace = &trace_results[1];
-        assert_eq!(
-            second_trace.tx_hash.to_string().to_lowercase(),
-            "0xdbc9477ae5709d01af509d709a2a1413ed72ee5aeb83903bc33de8d09c39a09a".to_lowercase()
+        // Use helper function to validate all traces
+        assert_traces_equal(&transformed_traces, &expected.trace);
+
+        // Verify expected trace count
+        assert_eq!(transformed_traces.len(), 65);
+    }
+
+    #[test]
+    fn test_transform_call_frame_to_traces_second_example() {
+        // Load second test case with different transaction structure
+        let call_json = include_str!("testdata/call2.json");
+        let brontes_json = include_str!("testdata/brontes2.json");
+
+        let call_frame: CallFrame = serde_json::from_str(call_json)
+            .expect("Failed to deserialize callTracer output (call2.json)");
+        let expected: TxTrace = serde_json::from_str(brontes_json)
+            .expect("Failed to deserialize brontesTracer output (brontes2.json)");
+
+        // Transform callTracer to our format
+        let tx_hash = B256::from_slice(
+            &hex::decode("bc4327e2332e8ad8c0f90b376a92ace63b8831ed2a3dda9b9cdf46ebec312719")
+                .unwrap(),
         );
-        assert_eq!(second_trace.result.tx_index, 1);
-        assert_eq!(second_trace.result.block_number, 327340070);
-        assert!(second_trace.result.is_success);
-        assert_eq!(second_trace.result.trace.len(), 1);
+        let transformed_traces = transform_call_frame_to_traces(call_frame, tx_hash);
 
-        // Verify gas_used and effective_price values
-        // "0x925d5" in hex = 599509 in decimal
-        assert_eq!(second_trace.result.gas_used, 599509);
-        // "0x0" in hex = 0 in decimal
-        assert_eq!(second_trace.result.effective_price, 0);
+        // Use helper function to validate all traces
+        assert_traces_equal(&transformed_traces, &expected.trace);
 
-        // Verify a trace element
-        let trace_element = &second_trace.result.trace[0];
-        assert_eq!(trace_element.trace_idx, 0);
-
-        // Compare addresses with case insensitivity
-        let actual_sender = trace_element.msg_sender.to_string().to_lowercase();
-        let expected_sender = "0xeb1a8834cf6ca6d721e5cb1a8ad472bbf62eef8e".to_lowercase();
-        assert_eq!(actual_sender, expected_sender);
-
-        assert!(trace_element.logs.is_empty());
+        // Verify expected trace count
+        assert_eq!(transformed_traces.len(), 114);
     }
 }
