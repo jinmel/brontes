@@ -406,6 +406,7 @@ impl RpcClient {
         block_number: u64,
         trace_options: TraceOptions,
     ) -> Result<Vec<TxTrace>, RpcError> {
+        tracing::info!("debug_trace_block_by_number for block number {:?}", block_number);
         let params = json!([format!("0x{:x}", block_number), trace_options]);
 
         let result: Result<Vec<CallTracerResult>, RpcError> =
