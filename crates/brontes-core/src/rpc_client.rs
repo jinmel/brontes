@@ -453,8 +453,6 @@ impl RpcClient {
 
 #[cfg(test)]
 mod tests {
-    use serde_json::json;
-
     use super::*;
 
     /// Helper function to validate that transformed traces match expected
