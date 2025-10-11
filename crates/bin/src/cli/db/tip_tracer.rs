@@ -42,7 +42,7 @@ impl TipTraceArgs {
             static_object(load_read_only_database(&ctx.task_executor, brontes_db_path).await?);
 
         let tracer =
-            get_tracing_provider(Path::new(&db_path), max_tasks, ctx.task_executor.clone());
+            get_tracing_provider(Path::new(&db_path), max_tasks, ctx.task_executor.clone(), None);
 
         let parser = static_object(DParser::new(metrics_tx, libmdbx, tracer.clone()).await);
         let mut end_block = parser.get_latest_block_number().await.unwrap();

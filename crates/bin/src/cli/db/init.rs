@@ -74,7 +74,7 @@ impl Init {
             static_object(load_database(&task_executor, brontes_db_path, None, None).await?);
         let clickhouse = static_object(load_clickhouse(Default::default(), None).await?);
 
-        let tracer = Arc::new(get_tracing_provider(Path::new(&db_path), 10, task_executor.clone()));
+        let tracer = Arc::new(get_tracing_provider(Path::new(&db_path), 10, task_executor.clone(), None));
 
         if self.init_libmdbx {
             // currently inits all tables
