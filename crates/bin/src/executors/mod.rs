@@ -65,7 +65,6 @@ pub struct BrontesRunConfig<T: TracingProvider, DB: LibmdbxInit, CH: ClickhouseH
     pub tip_db: &'static DB,
     pub cli_only: bool,
     pub metrics: bool,
-    pub is_snapshot: bool,
     pub cex_window: usize,
     pub max_pending: usize,
     _p: PhantomData<P>,
@@ -89,7 +88,6 @@ impl<T: TracingProvider, DB: LibmdbxInit, CH: ClickhouseHandle, P: Processor>
         tip_db: &'static DB,
         cli_only: bool,
         metrics: bool,
-        is_snapshot: bool,
         cex_window: usize,
         max_pending: usize,
     ) -> Self {
@@ -107,7 +105,6 @@ impl<T: TracingProvider, DB: LibmdbxInit, CH: ClickhouseHandle, P: Processor>
             cli_only,
             metrics,
             tip_db,
-            is_snapshot,
             cex_window,
             max_pending,
             _p: PhantomData,
@@ -120,9 +117,7 @@ impl<T: TracingProvider, DB: LibmdbxInit, CH: ClickhouseHandle, P: Processor>
         shutdown: GracefulShutdown,
     ) -> eyre::Result<Brontes> {
         // we always verify before we allow for any canceling
-        if !self.is_snapshot {
-            self.verify_global_tables().await?;
-        }
+        self.verify_global_tables().await?;
 
         let build_future = self.build_internal(executor.clone());
 
@@ -148,21 +143,6 @@ impl<T: TracingProvider, DB: LibmdbxInit, CH: ClickhouseHandle, P: Processor>
 
         let pricing_metrics = self.metrics.then(DexPricingMetrics::default);
         let (should_run_tip_inspector, end_block) = self.should_run_tip_inspector().await;
-
-        if self.is_snapshot {
-            let (start_block, db_end_block) = self.libmdbx.get_db_range()?;
-            if should_run_tip_inspector
-                || self.range_type.get_start_block(self.libmdbx) < Some(start_block)
-                || end_block > db_end_block
-            {
-                eyre::bail!(
-                    "the current db snapshot block range is {}-{}, please make sure that your set \
-                     range falls within these bounds",
-                    start_block,
-                    db_end_block
-                );
-            }
-        }
 
         if !should_run_tip_inspector {
             self.build_range_executors(executor.clone(), end_block, pricing_metrics.clone())
@@ -275,23 +255,17 @@ impl<T: TracingProvider, DB: LibmdbxInit, CH: ClickhouseHandle, P: Processor>
         let mut buffer_size = calculate_buffer_size(&state_to_init, self.max_tasks as usize);
 
         #[cfg(not(feature = "sorella-server"))]
-        let mut buffer_size = 8;
-
-        let mut tables_pb = Arc::new(Vec::new());
+        let buffer_size = 8;
 
         let multi = MultiProgress::default();
-        if !self.is_snapshot {
-            tables_pb = Arc::new(
-                state_to_init
-                    .tables_with_init_count()
-                    .map(|(table, count)| {
-                        (table, table.build_init_state_progress_bar(&multi, count as u64))
-                    })
-                    .collect_vec(),
-            );
-        } else {
-            buffer_size = (self.max_tasks as usize / 4).clamp(2, 25)
-        }
+        let tables_pb = Arc::new(
+            state_to_init
+                .tables_with_init_count()
+                .map(|(table, count)| {
+                    (table, table.build_init_state_progress_bar(&multi, count as u64))
+                })
+                .collect_vec(),
+        );
 
         let range_metrics = self.metrics.then(|| {
             GlobalRangeMetrics::new(chunks.iter().map(|(start, end)| end - start).collect_vec())
@@ -314,11 +288,9 @@ impl<T: TracingProvider, DB: LibmdbxInit, CH: ClickhouseHandle, P: Processor>
                         "Starting batch {batch_id} for block range {start_block}-{end_block}"
                     );
 
-                    if !self.is_snapshot {
-                        self.init_block_range_tables(ranges, tables_pb.clone(), self.metrics)
-                            .await
-                            .unwrap();
-                    }
+                    self.init_block_range_tables(ranges, tables_pb.clone(), self.metrics)
+                        .await
+                        .unwrap();
 
                     #[allow(clippy::async_yields_async)]
                     RangeExecutorWithPricing::new(
