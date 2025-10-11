@@ -57,6 +57,7 @@ impl ClickhouseDownload {
             Path::new(&std::env::var("DB_PATH").expect("DB_PATH not found in .env")),
             10,
             ctx.task_executor.clone(),
+            None,
         ));
         debug!(target: "brontes::db::clickhouse-download", "made tracer");
 

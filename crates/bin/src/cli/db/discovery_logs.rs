@@ -24,7 +24,7 @@ use indicatif::{ProgressBar, ProgressDrawTarget, ProgressState, ProgressStyle};
 use itertools::Itertools;
 
 use crate::{
-    cli::{get_env_vars, get_tracing_provider_rpc, load_database, static_object},
+    cli::{get_env_vars, get_tracing_provider, load_database, static_object},
     discovery_logs_only::DiscoveryLogsExecutor,
     runner::CliContext,
 };
@@ -178,7 +178,7 @@ impl DiscoveryLogsFill {
             Arc::new(RateLimiter::direct(Quota::per_second(NonZeroU32::new(rate_limit).unwrap())))
         });
 
-        let tracer = Arc::new(get_tracing_provider_rpc(
+        let tracer = Arc::new(get_tracing_provider(
             Path::new(&db_path),
             max_tasks as u64,
             ctx.task_executor.clone(),

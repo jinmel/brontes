@@ -152,6 +152,7 @@ impl TracingClient {
         &self,
         block_id: BlockId,
     ) -> EthResult<Option<Vec<TxTrace>>> {
+        tracing::info!("replaying block transactions with inspector for block {:?}", block_id);
         let insp_setup = || BrontesTracingInspector {
             config:                TracingInspectorConfig {
                 record_logs:              true,

@@ -20,6 +20,9 @@ use crate::{
     runner::CliContext,
     BrontesRunConfig, MevProcessor, RangeType,
 };
+use governor::{Quota, RateLimiter};
+use std::{num::NonZeroU32, sync::Arc};
+
 
 const SECONDS_TO_US_FLOAT: f64 = 1_000_000.0;
 
@@ -106,6 +109,11 @@ pub struct RunArgs {
     /// loss.
     #[arg(long)]
     pub fallback_server:      Option<String>,
+
+    // Rate limit (req/s) for RPC provider
+    #[arg(long)]
+    pub rate_limit: Option<u32>,
+
     /// Set a custom run ID used when inserting data into the Clickhouse
     ///
     /// If omitted, the ID will be automatically incremented from the last run
@@ -195,8 +203,16 @@ impl RunArgs {
             self.with_metrics,
         );
 
+        if let Some(rate_limit) = self.rate_limit {
+            tracing::info!(target: "brontes", "using rate limiter: {} reqs/second", rate_limit);
+        } 
+
+        let limiter = self.rate_limit.map(|rate_limit| {
+            Arc::new(RateLimiter::direct(Quota::per_second(NonZeroU32::new(rate_limit).unwrap())))
+        });
+
         let tracer =
-            get_tracing_provider(Path::new(&reth_db_path), max_tasks, task_executor.clone());
+            get_tracing_provider(Path::new(&reth_db_path), max_tasks, task_executor.clone(), limiter);
         let parser = static_object(DParser::new(metrics_tx, libmdbx, tracer.clone()).await);
 
         let executor = task_executor.clone();

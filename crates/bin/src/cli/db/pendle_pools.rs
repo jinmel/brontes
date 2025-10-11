@@ -37,7 +37,7 @@ impl PendlePoolsCommand {
         let executor = task_executor.executor();
         tokio::spawn(task_executor);
 
-        let tracer = get_tracing_provider(Path::new(&db_path), max_tasks, executor);
+        let tracer = get_tracing_provider(Path::new(&db_path), max_tasks, executor, None);
 
         // Initialize ClickHouse client
         let clickhouse = Clickhouse::new_default(None).await;

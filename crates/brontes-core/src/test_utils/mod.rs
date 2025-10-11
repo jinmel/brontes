@@ -598,10 +598,8 @@ pub async fn init_trace_parser(
     libmdbx: &'static LibmdbxReadWriter,
     _max_tasks: u32,
 ) -> TraceParser<Box<dyn TracingProvider>, LibmdbxReadWriter> {
-    let db_endpoint = env::var("RETH_ENDPOINT").expect("No db Endpoint in .env");
-    let db_port = env::var("RETH_PORT").expect("No DB port.env");
-    let url = format!("{db_endpoint}:{db_port}");
-    let tracer = Box::new(LocalProvider::new(url, 15)) as Box<dyn TracingProvider>;
+    let rpc_url = env::var("RPC_URL").expect("No db Endpoint in .env");
+    let tracer = Box::new(LocalProvider::new(rpc_url, 15)) as Box<dyn TracingProvider>;
 
     TraceParser::new(libmdbx, Arc::new(tracer), Arc::new(metrics_tx)).await
 }

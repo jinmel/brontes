@@ -45,7 +45,7 @@ impl TraceArgs {
             static_object(load_database(&ctx.task_executor, brontes_db_path, None, None).await?);
 
         let tracer =
-            get_tracing_provider(Path::new(&db_path), max_tasks, ctx.task_executor.clone());
+            get_tracing_provider(Path::new(&db_path), max_tasks, ctx.task_executor.clone(), None);
 
         let parser = static_object(DParser::new(metrics_tx, libmdbx, tracer.clone()).await);
 

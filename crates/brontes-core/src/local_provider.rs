@@ -11,7 +11,7 @@ use reth_primitives::{
 };
 use reth_rpc_types::{state::StateOverride, BlockOverrides, Filter, TransactionRequest};
 
-use crate::rpc_client::{RpcClient, TraceOptions};
+use crate::rpc_client::{RpcClient, TraceOptions, TracerConfig};
 
 #[derive(Debug, Clone)]
 pub struct LocalProvider {
@@ -99,7 +99,10 @@ impl TracingProvider for LocalProvider {
         tracing::info!(target: "brontes", "replaying block transactions: {:?}", block_id);
         match block_id {
             BlockId::Hash(hash) => {
-                let trace_options = TraceOptions { tracer: "brontesTracer".to_string() };
+                let trace_options = TraceOptions {
+                    tracer: "callTracer".to_string(),
+                    tracer_config: Some(TracerConfig { with_log: true }),
+                };
                 let traces = self
                     .rpc_client
                     .debug_trace_block_by_hash(hash.block_hash, trace_options)
@@ -107,7 +110,10 @@ impl TracingProvider for LocalProvider {
                 Ok(Some(traces))
             }
             BlockId::Number(number) => {
-                let trace_options = TraceOptions { tracer: "brontesTracer".to_string() };
+                let trace_options = TraceOptions {
+                    tracer: "callTracer".to_string(),
+                    tracer_config: Some(TracerConfig { with_log: true }),
+                };
                 if number.is_number() {
                     let traces = self
                         .rpc_client
@@ -276,7 +282,7 @@ mod tests {
     // Helper function to get RPC URL from environment
     fn get_rpc_url() -> String {
         dotenv::dotenv().ok();
-        env::var("ETH_RPC_URL").expect("ETH_RPC_URL must be set for tests")
+        env::var("RPC_URL").expect("RPC_URL must be set for tests")
     }
 
     fn init_tracing() {
