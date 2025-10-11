@@ -282,7 +282,7 @@ mod tests {
     // Helper function to get RPC URL from environment
     fn get_rpc_url() -> String {
         dotenv::dotenv().ok();
-        env::var("ETH_RPC_URL").expect("ETH_RPC_URL must be set for tests")
+        env::var("RPC_URL").expect("RPC_URL must be set for tests")
     }
 
     fn init_tracing() {

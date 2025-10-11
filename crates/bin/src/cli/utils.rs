@@ -126,13 +126,11 @@ pub async fn load_clickhouse(
 
 #[cfg(not(feature = "local-reth"))]
 pub fn get_tracing_provider(_: &Path, _: u64, _: BrontesTaskExecutor, limiter: Option<Arc<DefaultDirectRateLimiter>>) -> LocalProvider {
-    let db_endpoint = env::var("RETH_ENDPOINT").expect("No db Endpoint in .env");
-    let db_port = env::var("RETH_PORT").expect("No DB port.env");
-    let url = if db_port.is_empty() { db_endpoint } else { format!("{db_endpoint}:{db_port}") };
+    let rpc_url = env::var("RPC_URL").expect("No rpc urlin .env");
     if let Some(limiter) = limiter {
-        LocalProvider::new_with_limiter(url, 5, Some(limiter))
+        LocalProvider::new_with_limiter(rpc_url, 5, Some(limiter))
     } else {
-        LocalProvider::new(url, 5)
+        LocalProvider::new(rpc_url, 5)
     }
 }
 
