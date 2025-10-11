@@ -7,7 +7,7 @@ use brontes_types::{
         address_to_protocol_info::ProtocolInfo,
         block_analysis::BlockAnalysis,
         builder::BuilderInfo,
-        dex::DexQuotes,
+        dex::{DexQuotes, DexVolume},
         metadata::Metadata,
         mev_block::MevBlockWithClassified,
         searcher::SearcherInfo,
@@ -64,6 +64,11 @@ impl<I: DBWriter + Send + Sync> DBWriter for ClickhouseMiddleware<I> {
             .await?;
 
         self.inner().write_dex_quotes(block_number, quotes).await
+    }
+
+    async fn write_dex_volumes(&self, volumes: Vec<DexVolume>) -> eyre::Result<()> {
+        self.client.write_dex_volumes(volumes.clone()).await?;
+        self.inner().write_dex_volumes(volumes).await
     }
 
     async fn write_token_info(
@@ -418,6 +423,10 @@ impl<I: DBWriter + Send + Sync> DBWriter for ReadOnlyMiddleware<I> {
         self.client
             .write_dex_quotes(block_number, quotes.clone())
             .await
+    }
+
+    async fn write_dex_volumes(&self, volumes: Vec<DexVolume>) -> eyre::Result<()> {
+        self.client.write_dex_volumes(volumes).await
     }
 
     async fn write_token_info(
