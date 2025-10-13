@@ -190,10 +190,6 @@ impl LibmdbxInit for ClickhouseReadWriter {
 
 impl LibmdbxReader for ClickhouseReadWriter {
     fn get_most_recent_block(&self) -> eyre::Result<u64> {
-        // This would need to be implemented with a Clickhouse query
-        Err(eyre::eyre!(
-            "get_most_recent_block not implemented for ClickhouseReadWriter"
-        ))
     }
 
     fn has_dex_quotes(&self, _block_num: u64) -> eyre::Result<bool> {
