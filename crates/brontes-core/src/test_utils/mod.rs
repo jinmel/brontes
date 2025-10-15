@@ -599,7 +599,8 @@ pub async fn init_trace_parser(
     _max_tasks: u32,
 ) -> TraceParser<Box<dyn TracingProvider>, LibmdbxReadWriter> {
     let rpc_url = env::var("RPC_URL").expect("No db Endpoint in .env");
-    let tracer = Box::new(LocalProvider::new(rpc_url, 15, None)) as Box<dyn TracingProvider>;
+    let remote_rpc_url = env::var("REMOTE_RPC_URL").expect("REMOTE_RPC_URL must be set for tests");
+    let tracer = Box::new(LocalProvider::new(rpc_url, remote_rpc_url, 15, None)) as Box<dyn TracingProvider>;
 
     TraceParser::new(libmdbx, Arc::new(tracer), Arc::new(metrics_tx)).await
 }

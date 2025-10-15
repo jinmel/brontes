@@ -56,8 +56,10 @@ impl<T: TracingProvider, DB: LibmdbxReader + DBWriter> TraceParser<T, DB> {
         let mut traces = self.libmdbx.load_trace(block_num).ok()?;
         traces.sort_by(|a, b| a.tx_index.cmp(&b.tx_index));
         traces.dedup_by(|a, b| a.tx_index.eq(&b.tx_index));
-
-        Some((traces, self.tracer.header_by_number(block_num).await.ok()??))
+        tracing::debug!(%block_num, traces_in_block= traces.len(), "loaded trace for db");
+        let header = self.tracer.header_by_number(block_num).await.ok()??;
+        tracing::debug!(%block_num, ?header, "loaded header for db");
+        Some((traces, header))
     }
 
     pub async fn trace_clickhouse_block(self, block_num: u64) {

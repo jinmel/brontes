@@ -16,20 +16,22 @@ use crate::rpc_client::{RpcClient, TraceOptions, TracerConfig};
 #[derive(Debug, Clone)]
 pub struct LocalProvider {
     provider:   Arc<RootProvider<Http<reqwest::Client>, alloy_network::AnyNetwork>>,
+    provider_remote: Arc<RootProvider<Http<reqwest::Client>, alloy_network::AnyNetwork>>,
     rpc_client: Arc<RpcClient>,
     retries:    u8,
     limiter:    Option<Arc<DefaultDirectRateLimiter>>,
 }
 
 impl LocalProvider {
-    pub fn new(url: String, retries: u8, limiter: Option<Arc<DefaultDirectRateLimiter>>) -> Self {
+    pub fn new(url: String, remote_rpc_url: String, retries: u8, limiter: Option<Arc<DefaultDirectRateLimiter>>) -> Self {
         tracing::info!(target: "brontes", "creating local provider with url: {}", url);
 
         Self {
             provider: Arc::new(RootProvider::new_http(url.parse().unwrap())),
-            rpc_client: Arc::new(RpcClient::new(url.parse().unwrap())),
+            provider_remote: Arc::new(RootProvider::new_http(remote_rpc_url.parse().unwrap())),
+            rpc_client: Arc::new(RpcClient::new(remote_rpc_url.parse().unwrap())),
             retries,
-            limiter: limiter,
+            limiter,
         }
     }    
 }
@@ -51,7 +53,7 @@ impl TracingProvider for LocalProvider {
         let mut attempts = 0;
         loop {
             let res = self
-                .provider
+                .provider_remote
                 .call(&any_request, block_number.unwrap_or(BlockId::latest()))
                 .await;
             if res.is_ok() || attempts > self.retries {
@@ -181,7 +183,7 @@ impl TracingProvider for LocalProvider {
             None => BlockId::Number(BlockNumberOrTag::Latest),
         };
         let storage_value = self
-            .provider
+            .provider_remote
             .get_storage_at(address, storage_key.into(), block_id)
             .await?;
 
@@ -197,7 +199,7 @@ impl TracingProvider for LocalProvider {
             Some(number) => BlockId::Number(BlockNumberOrTag::Number(number)),
             None => BlockId::Number(BlockNumberOrTag::Latest),
         };
-        let bytes = self.provider.get_code_at(address, block_id).await?;
+        let bytes = self.provider_remote.get_code_at(address, block_id).await?;
 
         let bytecode = Bytecode::new_raw(bytes);
         Ok(Some(bytecode))
@@ -288,7 +290,8 @@ mod tests {
     async fn test_get_logs_with_address() {
         init_tracing();
         let url = get_rpc_url();
-        let provider = LocalProvider::new(url, 3, None);
+        let remote_rpc_url = env::var("REMOTE_RPC_URL").expect("REMOTE_RPC_URL must be set for tests");
+        let provider = LocalProvider::new(url, remote_rpc_url, 3, None);
 
         // Create a filter with a specific address
         // Using USDC contract address on Ethereum mainnet as an example
