@@ -53,7 +53,7 @@ pub fn tokio_runtime() -> Result<tokio::runtime::Runtime, std::io::Error> {
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or_else(num_cpus::get);
-
+    tracing::info!(target: "brontes", "tokio runtime using {} worker threads", threads);
     tokio::runtime::Builder::new_multi_thread()
         .worker_threads(threads)
         .enable_all()
