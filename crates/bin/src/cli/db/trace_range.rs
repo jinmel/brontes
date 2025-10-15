@@ -28,7 +28,7 @@ impl TraceArgs {
     pub async fn execute(self, brontes_db_path: String, ctx: CliContext) -> eyre::Result<()> {
         let db_path = get_env_vars()?;
 
-        let max_tasks = determine_max_tasks(None) * 2;
+        let max_tasks = determine_max_tasks(None) * 20;
         init_thread_pools(max_tasks as usize);
         let (metrics_tx, metrics_rx) = unbounded_channel();
 
