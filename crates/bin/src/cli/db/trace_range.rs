@@ -2,9 +2,7 @@ use std::path::Path;
 
 use brontes_core::decoding::Parser as DParser;
 use brontes_metrics::ParserMetricsListener;
-use brontes_types::{
-    init_thread_pools, unordered_buffer_map::BrontesStreamExt, UnboundedYapperReceiver,
-};
+use brontes_types::{init_thread_pools, UnboundedYapperReceiver};
 use clap::Parser;
 use futures::StreamExt;
 use tokio::sync::mpsc::unbounded_channel;
@@ -52,16 +50,19 @@ impl TraceArgs {
         let amount = (self.end_block - self.start_block) as f64;
 
         futures::stream::iter(self.start_block..self.end_block)
-            .unordered_buffer_map(100, |i| async move {
-                tracing::info!(%i, "tracing block");
-                if i % 5000 == 0 {
-                    tracing::info!(
-                        "tracing {:.2}% done",
-                        (i - self.start_block) as f64 / amount * 100.0
-                    );
-                }
-                parser.execute(i, 0, None).await
+            .map(|i| {
+                tokio::spawn(async move {
+                    tracing::info!(%i, "tracing block");
+                    if i % 5000 == 0 {
+                        tracing::info!(
+                            "tracing {:.2}% done",
+                            (i - self.start_block) as f64 / amount * 100.0
+                        );
+                    }
+                    parser.execute(i, 0, None).await
+                })
             })
+            .buffer_unordered(100)
             .map(|_res| ())
             .collect::<Vec<_>>()
             .await;
