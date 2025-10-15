@@ -1,6 +1,6 @@
 WITH
-    388730456 AS start_block,
-    388730459 AS end_block,
+    ? AS start_block,
+    ? AS end_block,
     raw_blocks AS (
         SELECT
             block_number,
