@@ -465,7 +465,7 @@ impl Clickhouse {
         match res {
             Ok(result) => Ok(result),
             Err(err) => {
-                error!("Query failed after maximum retries - final Error: {} query: {}", err, query.as_ref());
+                error!("Query failed after maximum retries - final Error: {} query: {} params: {:?}", err, query.as_ref(), params);
                 Err(DatabaseError::ClickhouseError(ClickhouseError::ClickhouseNative(Custom(
                     "Query failed after maximum retries".to_string(),
                 ))))
@@ -480,7 +480,7 @@ impl Clickhouse {
     ) -> Result<Option<Q>, DatabaseError>
     where
         Q: ClickhouseQuery,
-        P: BindParameters + Send + Sync,
+        P: BindParameters + Send + Sync + Debug,
     {
         let retry_strategy = ExponentialBuilder::default()
             .with_max_times(10)
@@ -514,7 +514,7 @@ impl Clickhouse {
         match res {
             Ok(result) => Ok(result),
             Err(err) => {
-                error!("Query failed after maximum retries - final Error: {} query: {}", err, query.as_ref());
+                error!("Query failed after maximum retries - final Error: {} query: {} params: {:?}", err, query.as_ref(), params);
                 Err(DatabaseError::ClickhouseError(ClickhouseError::ClickhouseNative(Custom(
                     "Query failed after maximum retries".to_string(),
                 ))))
