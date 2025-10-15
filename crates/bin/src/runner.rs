@@ -1,4 +1,5 @@
 use std::{
+    env,
     future::Future,
     net::{IpAddr, Ipv4Addr, SocketAddr},
     time::Duration,
@@ -48,7 +49,13 @@ where
 /// Creates a new default tokio multi-thread [Runtime](tokio::runtime::Runtime)
 /// with all features enabled
 pub fn tokio_runtime() -> Result<tokio::runtime::Runtime, std::io::Error> {
+    let threads: usize = env::var("TOKIO_WORKER_THREADS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or_else(num_cpus::get);
+
     tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(threads)
         .enable_all()
         .build()
 }

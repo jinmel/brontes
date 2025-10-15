@@ -85,7 +85,7 @@ impl TracingProvider for LocalProvider {
         &self,
         block_id: BlockId,
     ) -> eyre::Result<Option<Vec<TxTrace>>> {
-        tracing::info!(target: "brontes", "replaying block transactions: {:?}", block_id);
+        tracing::trace!(target: "brontes", "replaying block transactions: {:?}", block_id);
         match block_id {
             BlockId::Hash(hash) => {
                 let trace_options = TraceOptions {

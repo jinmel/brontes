@@ -52,7 +52,6 @@ impl TraceArgs {
         futures::stream::iter(self.start_block..self.end_block)
             .map(|i| {
                 tokio::spawn(async move {
-                    tracing::info!(%i, "tracing block");
                     if i % 5000 == 0 {
                         tracing::info!(
                             "tracing {:.2}% done",

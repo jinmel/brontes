@@ -256,7 +256,7 @@ impl<T: TracingProvider, DB: LibmdbxReader + DBWriter> TraceParser<T, DB> {
 
     #[cfg(not(feature = "dyn-decode"))]
     pub(crate) async fn trace_block(&self, block_num: u64) -> (Option<Vec<TxTrace>>, BlockStats) {
-        tracing::info!(target: "brontes", "tracing block: {:?}", block_num);
+        tracing::trace!(target: "brontes", "tracing block: {:?}", block_num);
         let merged_trace = self
             .tracer
             .replay_block_transactions(BlockId::Number(BlockNumberOrTag::Number(block_num)))
