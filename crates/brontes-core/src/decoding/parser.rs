@@ -112,8 +112,10 @@ impl<T: TracingProvider, DB: LibmdbxReader + DBWriter> TraceParser<T, DB> {
             return block_hash.map(|b| (b, res.0, res.1))
         }
 
-        let parity_trace = self.trace_block(block_num).await;
-        let receipts = self.get_receipts(block_num).await;
+        let (parity_trace, receipts) = futures::join!(
+            self.trace_block(block_num),
+            self.get_receipts(block_num)
+        );
         if parity_trace.0.is_none() && receipts.0.is_none() {
             #[cfg(feature = "dyn-decode")]
             self.metrics_tx
