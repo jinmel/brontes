@@ -98,7 +98,6 @@ impl<T: TracingProvider, DB: LibmdbxReader + DBWriter> TraceParser<T, DB> {
     /// executes the tracing of a given block
     #[allow(unreachable_code)]
     pub async fn execute_block(self, block_num: u64) -> Option<(BlockHash, Vec<TxTrace>, Header)> {
-        tracing::info!(target: "brontes", "executing block: {:?}", block_num);
         if let Some(res) = self.load_block_from_db(block_num).await {
             tracing::debug!(%block_num, traces_in_block= res.0.len(),"loaded trace for db");
 
@@ -111,7 +110,6 @@ impl<T: TracingProvider, DB: LibmdbxReader + DBWriter> TraceParser<T, DB> {
             return block_hash.map(|b| (b, res.0, res.1))
         }
 
-        tracing::info!(target: "brontes", "no block found in db, tracing block: {:?}", block_num);
         let parity_trace = self.trace_block(block_num).await;
         let receipts = self.get_receipts(block_num).await;
         if parity_trace.0.is_none() && receipts.0.is_none() {
