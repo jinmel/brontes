@@ -2,7 +2,7 @@ use std::path::Path;
 
 use brontes_core::decoding::Parser as DParser;
 use brontes_metrics::ParserMetricsListener;
-use brontes_types::{init_thread_pools, UnboundedYapperReceiver};
+use brontes_types::{execute_on_download_thread_pool, init_thread_pools, UnboundedYapperReceiver};
 use clap::Parser;
 use futures::StreamExt;
 use tokio::sync::mpsc::unbounded_channel;
@@ -26,7 +26,7 @@ impl TraceArgs {
     pub async fn execute(self, brontes_db_path: String, ctx: CliContext) -> eyre::Result<()> {
         let db_path = get_env_vars()?;
 
-        let max_tasks = determine_max_tasks(None) * 20;
+        let max_tasks = determine_max_tasks(None) * 2;
         init_thread_pools(max_tasks as usize);
         let (metrics_tx, metrics_rx) = unbounded_channel();
 
@@ -62,7 +62,7 @@ impl TraceArgs {
                     parser.execute(i, 0, None).await
                 })
             })
-            .buffer_unordered(100)
+            .buffer_unordered(1000)
             .map(|_res| ())
             .collect::<Vec<_>>()
             .await;
