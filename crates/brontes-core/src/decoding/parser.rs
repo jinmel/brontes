@@ -100,17 +100,17 @@ impl<T: TracingProvider, DB: LibmdbxReader + DBWriter> TraceParser<T, DB> {
     /// executes the tracing of a given block
     #[allow(unreachable_code)]
     pub async fn execute_block(self, block_num: u64) -> Option<(BlockHash, Vec<TxTrace>, Header)> {
-        if let Some(res) = self.load_block_from_db(block_num).await {
-            tracing::debug!(%block_num, traces_in_block= res.0.len(),"loaded trace for db");
+        // if let Some(res) = self.load_block_from_db(block_num).await {
+        //     tracing::debug!(%block_num, traces_in_block= res.0.len(),"loaded trace for db");
 
-            let block_hash = self.tracer.block_hash_for_id(block_num).await.ok()?;
+        //     let block_hash = self.tracer.block_hash_for_id(block_num).await.ok()?;
 
-            if block_hash.is_none() {
-                error!(%block_num, "failed to get block hash for block");
-            }
+        //     if block_hash.is_none() {
+        //         error!(%block_num, "failed to get block hash for block");
+        //     }
 
-            return block_hash.map(|b| (b, res.0, res.1))
-        }
+        //     return block_hash.map(|b| (b, res.0, res.1))
+        // }
 
         let (parity_trace, receipts) = futures::join!(
             self.trace_block(block_num),
