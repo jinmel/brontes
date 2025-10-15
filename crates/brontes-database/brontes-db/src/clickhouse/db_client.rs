@@ -28,6 +28,8 @@ use brontes_types::{
     structured_trace::TxTrace,
     BlockTree, Protocol,
 };
+use clickhouse::Client;
+use clickhouse::Compression;
 use clickhouse::error::Error::{BadResponse, Custom, Network};
 use db_interfaces::{
     clickhouse::{
@@ -51,6 +53,8 @@ use brontes_types::db::clickhouse_serde::tx_trace::{
     ClickhouseCreateOutput, ClickhouseDecodedCallData, ClickhouseLogs,
     ClickhouseRewardAction, ClickhouseSelfDestructAction,
 };
+use std::marker::PhantomData;
+use hyper_tls::HttpsConnector;
 use super::tx_traces::{
     MetaTuple, TxTraceRow,
     TxTraceTuple,
@@ -91,7 +95,22 @@ impl Clickhouse {
         tip: bool,
         run_id: Option<u64>,
     ) -> Self {
-        let client = config.build();
+        let client = if config.https {
+            let https = HttpsConnector::new();
+            let https_client = hyper::Client::builder().build::<_, hyper::Body>(https);
+            Client::with_http_client(https_client)
+                .with_url(config.url)
+                .with_user(config.user)
+                .with_password(config.password)
+                .with_compression(Compression::Lz4)
+        } else {
+            Client::default()
+                .with_url(config.url)
+                .with_user(config.user)
+                .with_password(config.password)
+                .with_compression(Compression::Lz4)
+        };
+        let client = ClickhouseClient{client, _phantom: PhantomData};
         let mut this = Self {
             client,
             cex_download_config,
