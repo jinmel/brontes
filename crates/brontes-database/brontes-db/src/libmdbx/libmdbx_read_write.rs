@@ -422,14 +422,31 @@ impl LibmdbxReader for LibmdbxReadWriter {
 
     #[brontes_macros::metrics_call(ptr=metrics,scope,db_read,"load_trace")]
     fn load_trace(&self, block_num: u64) -> eyre::Result<Vec<TxTrace>> {
-        self.db.view_db(|tx| {
-            tx.get::<TxTraces>(block_num)?
-                .ok_or_else(|| eyre::eyre!("missing trace for block: {}", block_num))
-                .map(|i| {
-                    i.traces
-                        .ok_or_else(|| eyre::eyre!("missing trace for block: {}", block_num))
-                })?
-        })
+        const MAX_RETRIES: usize = 5;
+        const RETRY_DELAY_MS: u64 = 100;
+        
+        let mut last_error = None;
+        
+        for attempt in 0..MAX_RETRIES {
+            match self.db.view_db(|tx| {
+                tx.get::<TxTraces>(block_num)?
+                    .ok_or_else(|| eyre::eyre!("missing trace for block: {}", block_num))
+                    .map(|i| {
+                        i.traces
+                            .ok_or_else(|| eyre::eyre!("missing trace for block: {}", block_num))
+                    })?
+            }) {
+                Ok(result) => return Ok(result),
+                Err(e) => {
+                    last_error = Some(e);
+                    if attempt < MAX_RETRIES - 1 {
+                        std::thread::sleep(std::time::Duration::from_millis(RETRY_DELAY_MS));
+                    }
+                }
+            }
+        }
+        
+        Err(last_error.unwrap_or_else(|| eyre::eyre!("load_trace failed after {} retries for block {}", MAX_RETRIES, block_num)))
     }
 
     #[brontes_macros::metrics_call(ptr=metrics,scope,db_read,"protocol_info")]
