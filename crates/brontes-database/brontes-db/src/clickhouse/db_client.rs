@@ -465,7 +465,7 @@ impl Clickhouse {
         match res {
             Ok(result) => Ok(result),
             Err(err) => {
-                error!("Query failed after maximum retries - final Error: {}", err);
+                error!("Query failed after maximum retries - final Error: {} query: {}", err, query.as_ref());
                 Err(DatabaseError::ClickhouseError(ClickhouseError::ClickhouseNative(Custom(
                     "Query failed after maximum retries".to_string(),
                 ))))
@@ -514,7 +514,7 @@ impl Clickhouse {
         match res {
             Ok(result) => Ok(result),
             Err(err) => {
-                error!("Query failed after maximum retries - final Error: {}", err);
+                error!("Query failed after maximum retries - final Error: {} query: {}", err, query.as_ref());
                 Err(DatabaseError::ClickhouseError(ClickhouseError::ClickhouseNative(Custom(
                     "Query failed after maximum retries".to_string(),
                 ))))
