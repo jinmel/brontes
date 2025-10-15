@@ -24,7 +24,7 @@ pub struct LocalProvider {
 
 impl LocalProvider {
     pub fn new(url: String, remote_rpc_url: String, retries: u8, limiter: Option<Arc<DefaultDirectRateLimiter>>) -> Self {
-        tracing::info!(target: "brontes", "creating local provider with url: {}", url);
+        tracing::info!(target: "brontes", "creating local provider with url: {} remote_rpc_url: {}", url, remote_rpc_url);
 
         Self {
             provider: Arc::new(RootProvider::new_http(url.parse().unwrap())),
