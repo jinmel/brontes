@@ -1,4 +1,4 @@
-use std::{fmt::Debug, str::FromStr};
+use std::{fmt::Debug, marker::PhantomData, str::FromStr};
 
 use ::clickhouse::DbRow;
 use alloy_primitives::Address;
@@ -17,6 +17,11 @@ use brontes_types::{
             trades::{CexTradesConverter, RawCexTrades},
             BestCexPerPair,
         },
+        clickhouse_serde::tx_trace::{
+            ClickhouseCallAction, ClickhouseCallOutput, ClickhouseCreateAction,
+            ClickhouseCreateOutput, ClickhouseDecodedCallData, ClickhouseLogs,
+            ClickhouseRewardAction, ClickhouseSelfDestructAction,
+        },
         dex::{DexQuotes, DexQuotesWithBlockNumber},
         metadata::{BlockMetadata, BlockMetadataInner, Metadata},
         normalized_actions::TransactionRoot,
@@ -28,9 +33,10 @@ use brontes_types::{
     structured_trace::TxTrace,
     BlockTree, Protocol,
 };
-use clickhouse::Client;
-use clickhouse::Compression;
-use clickhouse::error::Error::{BadResponse, Custom, Network};
+use clickhouse::{
+    error::Error::{BadResponse, Custom, Network},
+    Client, Compression,
+};
 use db_interfaces::{
     clickhouse::{
         client::ClickhouseClient, config::ClickhouseConfig, errors::ClickhouseError,
@@ -42,27 +48,19 @@ use db_interfaces::{
 };
 use eyre::Result;
 use futures::future::ok;
-use itertools::Itertools;
-use itertools::izip;
+use hyper_tls::HttpsConnector;
+use itertools::{izip, Itertools};
 use reth_primitives::{BlockHash, TxHash};
 use serde::{Deserialize, Serialize};
 use tokio::{sync::mpsc::UnboundedSender, time::Duration};
 use tracing::{debug, error, warn};
-use brontes_types::db::clickhouse_serde::tx_trace::{
-    ClickhouseCallAction, ClickhouseCallOutput, ClickhouseCreateAction,
-    ClickhouseCreateOutput, ClickhouseDecodedCallData, ClickhouseLogs,
-    ClickhouseRewardAction, ClickhouseSelfDestructAction,
-};
-use std::marker::PhantomData;
-use hyper_tls::HttpsConnector;
-use super::tx_traces::{
-    MetaTuple, TxTraceRow,
-    TxTraceTuple,
-};
 
 use super::{
-    cex_config::CexDownloadConfig, dbms::*, ClickhouseHandle, MOST_VOLUME_PAIR_EXCHANGE,
-    P2P_OBSERVATIONS, PRIVATE_FLOW, RAW_CEX_QUOTES, RAW_CEX_TRADES,
+    cex_config::CexDownloadConfig,
+    dbms::*,
+    tx_traces::{MetaTuple, TxTraceRow, TxTraceTuple},
+    ClickhouseHandle, MOST_VOLUME_PAIR_EXCHANGE, P2P_OBSERVATIONS, PRIVATE_FLOW, RAW_CEX_QUOTES,
+    RAW_CEX_TRADES,
 };
 #[cfg(feature = "local-clickhouse")]
 use super::{BLOCK_TIMES, CEX_SYMBOLS};
@@ -110,7 +108,7 @@ impl Clickhouse {
                 .with_password(config.password)
                 .with_compression(Compression::Lz4)
         };
-        let client = ClickhouseClient{client, _phantom: PhantomData};
+        let client = ClickhouseClient { client, _phantom: PhantomData };
         let mut this = Self {
             client,
             cex_download_config,
@@ -471,7 +469,10 @@ impl Clickhouse {
                 DatabaseError::ClickhouseError(ClickhouseError::ClickhouseNative(BadResponse(
                     s,
                 ))) if s.to_string().contains("MEMORY_LIMIT_EXCEEDED") => true,
-                _ => false,
+                _ => {
+                    error!("Query failed - Error: {:?}", e.to_string());
+                    false
+                }
             })
             .notify(|err, dur| {
                 warn!(
@@ -484,7 +485,12 @@ impl Clickhouse {
         match res {
             Ok(result) => Ok(result),
             Err(err) => {
-                error!("Query failed after maximum retries - final Error: {} query: {} params: {:?}", err, query.as_ref(), params);
+                error!(
+                    "Query failed after maximum retries - final Error: {} query: {} params: {:?}",
+                    err,
+                    query.as_ref(),
+                    params
+                );
                 Err(DatabaseError::ClickhouseError(ClickhouseError::ClickhouseNative(Custom(
                     "Query failed after maximum retries".to_string(),
                 ))))
@@ -533,7 +539,12 @@ impl Clickhouse {
         match res {
             Ok(result) => Ok(result),
             Err(err) => {
-                error!("Query failed after maximum retries - final Error: {} query: {} params: {:?}", err, query.as_ref(), params);
+                error!(
+                    "Query failed after maximum retries - final Error: {} query: {} params: {:?}",
+                    err,
+                    query.as_ref(),
+                    params
+                );
                 Err(DatabaseError::ClickhouseError(ClickhouseError::ClickhouseNative(Custom(
                     "Query failed after maximum retries".to_string(),
                 ))))
@@ -1201,6 +1212,7 @@ mod tests {
             NormalizedBurn, NormalizedLiquidation, NormalizedMint, NormalizedSwap,
         },
         pair::Pair,
+        serde_utils::{option_addresss, u256, vec_txhash},
         FastHashMap, GasDetails,
     };
     use db_interfaces::{
@@ -1208,6 +1220,7 @@ mod tests {
         test_utils::TestDatabase,
     };
     use malachite::{num::basic::traits::Zero, Rational};
+    use reth_primitives::{Address, U256};
 
     use super::*;
 
@@ -1599,5 +1612,59 @@ mod tests {
         test_db
             .run_test_with_test_db(tables, |db| Box::pin(run_all(db)))
             .await;
+    }
+
+    #[derive(Debug, Serialize, Deserialize, clickhouse::Row, PartialEq)]
+    pub struct BlockMetadataResult {
+        pub block_number:           u64,
+        #[serde(with = "u256")]
+        pub block_hash:             U256,
+        pub block_timestamp:        u64,
+        pub relay_timestamp:        Option<u64>,
+        pub p2p_timestamp:          Option<u64>,
+        #[serde(with = "option_addresss")]
+        pub proposer_fee_recipient: Option<Address>,
+        pub proposer_mev_reward:    Option<u128>,
+        #[serde(with = "vec_txhash")]
+        pub private_flow:           Vec<TxHash>,
+    }
+
+    #[brontes_macros::test]
+    async fn test_block_metadata_query() {
+        let test_db = Clickhouse::new_default(Some(0)).await;
+        let query = r#"
+ WITH
+    ? AS start_block,
+    ? AS end_block,
+    raw_blocks AS (
+        SELECT
+            block_number,
+            block_hash,
+            anyLast(block_timestamp) AS block_timestamp
+        FROM ethereum.blocks
+        WHERE block_number >= start_block AND block_number < end_block AND valid = 1
+        GROUP BY block_number, block_hash
+    )
+SELECT
+    CAST(b.block_number, 'UInt64') AS block_number,
+    CAST(b.block_hash, 'String') AS block_hash,
+    CAST(b.block_timestamp, 'UInt64') AS block_timestamp,
+    null as relay_timestamp,
+    null as p2p_timestamp,
+    null as proposer_fee_recipient,
+    null as proposer_mev_reward,
+    [] as private_txs
+FROM raw_blocks b
+"#;
+
+        // Test with a known block range
+        let start_block = 388730456u64;
+        let end_block = 388731456u64;
+
+        let results: Result<Vec<BlockMetadataResult>, DatabaseError> = test_db
+            .query_many_with_retry(query, &(start_block, end_block))
+            .await;
+
+        println!("Results: {:?}", results)
     }
 }
