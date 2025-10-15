@@ -52,10 +52,12 @@ impl TraceArgs {
         futures::stream::iter(self.start_block..self.end_block)
             .map(|i| {
                 tokio::spawn(async move {
-                    if i % 5000 == 0 {
+                    if i % 200 == 0 {
                         tracing::info!(
-                            "tracing {:.2}% done",
-                            (i - self.start_block) as f64 / amount * 100.0
+                            "tracing {:.2}% done current block: {} total blocks: {}",
+                            (i - self.start_block) as f64 / amount * 100.0,
+                            i,
+                            self.end_block - self.start_block
                         );
                     }
                     parser.execute(i, 0, None).await
