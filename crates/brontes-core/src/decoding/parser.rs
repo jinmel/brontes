@@ -112,9 +112,10 @@ impl<T: TracingProvider, DB: LibmdbxReader + DBWriter> TraceParser<T, DB> {
             return block_hash.map(|b| (b, res.0, res.1))
         }
 
-        let (parity_trace, receipts) = futures::join!(
+        let (parity_trace, receipts, block_hash) = futures::join!(
             self.trace_block(block_num),
-            self.get_receipts(block_num)
+            self.get_receipts(block_num),
+            self.tracer.block_hash_for_id(block_num)
         );
         if parity_trace.0.is_none() && receipts.0.is_none() {
             #[cfg(feature = "dyn-decode")]
@@ -149,7 +150,7 @@ impl<T: TracingProvider, DB: LibmdbxReader + DBWriter> TraceParser<T, DB> {
             error!(%block_num, "failed to store traces for block");
         }
 
-        let block_hash = self.tracer.block_hash_for_id(block_num).await.ok()?;
+        let block_hash = block_hash.ok()?;
 
         if block_hash.is_none() {
             error!(%block_num, "failed to get block hash for block");
