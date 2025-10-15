@@ -11,9 +11,9 @@ pub fn init_thread_pools(max_tasks: usize) {
     // inspector runtime ~ 50ms
     let inspect_tasks = max_tasks;
 
-    let downalod_tasks = (max_tasks as f64 * 0.50) as usize + 1;
+    let download_tasks = (max_tasks as f64 * 0.50) as usize + 1;
 
-    init_download_thread_pool(downalod_tasks);
+    init_download_thread_pool(download_tasks);
     init_pricing_thread_pool(pricing_tasks);
     init_inspect_threadpool(inspect_tasks);
 }
