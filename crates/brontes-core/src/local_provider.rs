@@ -113,9 +113,10 @@ impl TracingProvider for LocalProvider {
                     .ok_or(eyre::eyre!("block not found"))?;
 
                 if block.header.number.unwrap() < MIN_BLOCK_NUMBER_FOR_TRACE_REPLAY {
-                    return Err(eyre::eyre!("block number is less than 22207818, skipping trace replay"));
+                    return Err(eyre::eyre!(
+                        "block number is less than 22207818, skipping trace replay"
+                    ));
                 }
-
                 let traces: Vec<GethTrace> = self
                     .provider_remote
                     .debug_trace_block_by_hash(hash.block_hash, trace_opt)
@@ -132,10 +133,16 @@ impl TracingProvider for LocalProvider {
                 (traces, receipts)
             }
             BlockId::Number(number) => {
-                if number.as_number().ok_or(eyre::eyre!("could not get block number"))? < MIN_BLOCK_NUMBER_FOR_TRACE_REPLAY {
-                    return Err(eyre::eyre!("block number is less than 22207818, skipping trace replay"));
+                if number
+                    .as_number()
+                    .ok_or(eyre::eyre!("could not get block number"))?
+                    < MIN_BLOCK_NUMBER_FOR_TRACE_REPLAY
+                {
+                    return Err(eyre::eyre!(
+                        "block number is less than 22207818, skipping trace replay"
+                    ));
                 }
-                
+
                 let traces = self
                     .provider_remote
                     .debug_trace_block_by_number(number.as_number().unwrap(), trace_opt)
