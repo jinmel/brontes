@@ -134,9 +134,6 @@ impl RunArgs {
             rain();
         }
 
-        let snapshot_mode = !cfg!(feature = "local-clickhouse");
-        tracing::info!(%snapshot_mode);
-
         // Fetch required environment variables.
         let reth_db_path = get_env_vars()?;
         tracing::info!(target: "brontes", "got env vars");
@@ -159,10 +156,10 @@ impl RunArgs {
         let hr = self.try_start_fallback_server().await;
 
         tracing::info!(target: "brontes", "starting database initialization at: '{}'", brontes_db_path);
-        let libmdbx =
+        let db =
             static_object(load_database(&task_executor, brontes_db_path, hr, self.run_id).await?);
 
-        let tip = static_object(load_tip_database(libmdbx)?);
+        let tip_db = static_object(load_tip_database(db)?);
         tracing::info!(target: "brontes", "initialized libmdbx database");
 
         let load_window = self.load_time_window();
@@ -194,7 +191,7 @@ impl RunArgs {
 
         let inspectors = init_inspectors(
             quote_asset,
-            libmdbx,
+            db,
             self.inspectors,
             self.cex_exchanges,
             trade_config,
@@ -213,7 +210,7 @@ impl RunArgs {
 
         let tracer =
             get_tracing_provider(Path::new(&reth_db_path), max_tasks, task_executor.clone(), limiter);
-        let parser = static_object(DParser::new(metrics_tx, libmdbx, tracer.clone()).await);
+        let parser = static_object(DParser::new(metrics_tx, db, tracer.clone()).await);
 
         let executor = task_executor.clone();
         let result = executor
@@ -229,11 +226,10 @@ impl RunArgs {
                     inspectors,
                     clickhouse,
                     parser,
-                    libmdbx,
-                    tip,
+                    db,
+                    tip_db,
                     self.cli_only,
                     self.with_metrics,
-                    snapshot_mode,
                     load_window,
                     self.max_pending,
                 )

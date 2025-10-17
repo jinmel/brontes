@@ -128,9 +128,9 @@ pub async fn load_clickhouse(
 pub fn get_tracing_provider(_: &Path, _: u64, _: BrontesTaskExecutor, limiter: Option<Arc<DefaultDirectRateLimiter>>) -> LocalProvider {
     let rpc_url = env::var("RPC_URL").expect("No rpc urlin .env");
     if let Some(limiter) = limiter {
-        LocalProvider::new_with_limiter(rpc_url, 5, Some(limiter))
+        LocalProvider::new(rpc_url, 5, Some(limiter))
     } else {
-        LocalProvider::new(rpc_url, 5)
+        LocalProvider::new(rpc_url, 5, None)
     }
 }
 

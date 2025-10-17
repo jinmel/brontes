@@ -21,6 +21,8 @@ pub use http_client::*;
 
 #[cfg(feature = "local-clickhouse")]
 mod middleware;
+#[cfg(feature = "local-clickhouse")]
+mod clickhouse_read_writer;
 use std::fmt::Debug;
 
 pub mod cex_config;
@@ -38,6 +40,8 @@ pub use dbms::BrontesClickhouseTables;
 use futures::Future;
 #[cfg(feature = "local-clickhouse")]
 pub use middleware::*;
+#[cfg(feature = "local-clickhouse")]
+pub use clickhouse_read_writer::*;
 use serde::Deserialize;
 
 use crate::{

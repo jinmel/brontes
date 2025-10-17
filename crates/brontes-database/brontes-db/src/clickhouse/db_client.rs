@@ -9,13 +9,18 @@ use brontes_types::db::{block_times::BlockTimes, cex::CexSymbols};
 use brontes_types::{
     block_metadata::{RelayBlockMetadata, Relays},
     db::{
-        address_to_protocol_info::ProtocolInfoClickhouse,
+        address_to_protocol_info::{ProtocolInfoClickhouse, ProtocolInfo},
         block_analysis::BlockAnalysis,
         builder::BuilderInfo,
         cex::{
             quotes::{CexQuotesConverter, RawCexQuotes},
             trades::{CexTradesConverter, RawCexTrades},
             BestCexPerPair,
+        },
+        clickhouse_serde::tx_trace::{
+            ClickhouseCallAction, ClickhouseCallOutput, ClickhouseCreateAction,
+            ClickhouseCreateOutput, ClickhouseDecodedCallData, ClickhouseLogs,
+            ClickhouseRewardAction, ClickhouseSelfDestructAction,
         },
         dex::{DexQuotes, DexQuotesWithBlockNumber},
         metadata::{BlockMetadata, BlockMetadataInner, Metadata},
@@ -38,27 +43,20 @@ use db_interfaces::{
     params::BindParameters,
     Database,
 };
-use eyre::Result;
+use eyre::{eyre, Context, Result};
 use futures::future::ok;
-use itertools::Itertools;
-use itertools::izip;
+use itertools::{izip, Itertools};
 use reth_primitives::{BlockHash, TxHash};
 use serde::{Deserialize, Serialize};
 use tokio::{sync::mpsc::UnboundedSender, time::Duration};
 use tracing::{debug, error, warn};
-use brontes_types::db::clickhouse_serde::tx_trace::{
-    ClickhouseCallAction, ClickhouseCallOutput, ClickhouseCreateAction,
-    ClickhouseCreateOutput, ClickhouseDecodedCallData, ClickhouseLogs,
-    ClickhouseRewardAction, ClickhouseSelfDestructAction,
-};
-use super::tx_traces::{
-    MetaTuple, TxTraceRow,
-    TxTraceTuple,
-};
 
 use super::{
-    cex_config::CexDownloadConfig, dbms::*, ClickhouseHandle, MOST_VOLUME_PAIR_EXCHANGE,
-    P2P_OBSERVATIONS, PRIVATE_FLOW, RAW_CEX_QUOTES, RAW_CEX_TRADES,
+    cex_config::CexDownloadConfig,
+    dbms::*,
+    tx_traces::{MetaTuple, TxTraceRow, TxTraceTuple},
+    ClickhouseHandle, MOST_VOLUME_PAIR_EXCHANGE, P2P_OBSERVATIONS, PRIVATE_FLOW, RAW_CEX_QUOTES,
+    RAW_CEX_TRADES,
 };
 #[cfg(feature = "local-clickhouse")]
 use super::{BLOCK_TIMES, CEX_SYMBOLS};
@@ -140,6 +138,54 @@ impl Clickhouse {
             .client
             .query_one::<u64, _>("select max(block_number) from brontes_api.tx_traces", &())
             .await?)
+    }
+
+    pub async fn get_highest_block_number(&self) -> eyre::Result<u64> {
+        self.client
+            .query_one::<u64, _>("select max(block_number) from mev.mev_blocks", &())
+            .await
+            .wrap_err("failed to get highest block number")
+    }
+
+    pub async fn fetch_dex_quotes(&self, block_num: u64) -> eyre::Result<DexQuotes> {
+        self.client
+            .query_one::<DexQuotes, _>(
+                "select * from brontes.dex_price_mapping where block_number = ?",
+                &(block_num,),
+            )
+            .await
+            .wrap_err("failed to fetch dex quotes")
+    }
+
+    pub async fn has_dex_quotes(&self, block_num: u64) -> eyre::Result<bool> {
+        let count = self.client
+            .query_one::<u64, _>(
+                "select count(*) from brontes.dex_price_mapping where block_number = ?",
+                &(block_num,),
+            )
+            .await
+            .wrap_err("failed to check if dex quotes exist")?;
+        Ok(count > 0)
+    }
+
+    pub async fn load_trace(&self, block_num: u64) -> eyre::Result<Vec<TxTrace>> {
+        self.client
+            .query_one::<Vec<TxTrace>, _>(
+                "select * from brontes.tx_traces where block_number = ?",
+                &(block_num,),
+            )
+            .await
+            .wrap_err("failed to load trace")
+    }
+
+    pub async fn get_protocol_details(&self, address: Address) -> eyre::Result<ProtocolInfo> {
+        self.client
+            .query_one::<ProtocolInfo, _>(
+                "select * from ethereum.pools where address = ?",
+                &(address,),
+            )
+            .await
+            .wrap_err("failed to get protocol details")
     }
 
     // inserts

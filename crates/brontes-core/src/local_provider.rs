@@ -22,29 +22,16 @@ pub struct LocalProvider {
 }
 
 impl LocalProvider {
-    pub fn new(url: String, retries: u8) -> Self {
+    pub fn new(url: String, retries: u8, limiter: Option<Arc<DefaultDirectRateLimiter>>) -> Self {
         tracing::info!(target: "brontes", "creating local provider with url: {}", url);
 
         Self {
             provider: Arc::new(RootProvider::new_http(url.parse().unwrap())),
             rpc_client: Arc::new(RpcClient::new(url.parse().unwrap())),
             retries,
-            limiter: None,
+            limiter: limiter,
         }
-    }
-
-    pub fn new_with_limiter(
-        url: String,
-        retries: u8,
-        limiter: Option<Arc<DefaultDirectRateLimiter>>,
-    ) -> Self {
-        Self {
-            provider: Arc::new(RootProvider::new_http(url.parse().unwrap())),
-            rpc_client: Arc::new(RpcClient::new(url.parse().unwrap())),
-            retries,
-            limiter,
-        }
-    }
+    }    
 }
 
 #[async_trait::async_trait]
@@ -301,7 +288,7 @@ mod tests {
     async fn test_get_logs_with_address() {
         init_tracing();
         let url = get_rpc_url();
-        let provider = LocalProvider::new(url, 3);
+        let provider = LocalProvider::new(url, 3, None);
 
         // Create a filter with a specific address
         // Using USDC contract address on Ethereum mainnet as an example

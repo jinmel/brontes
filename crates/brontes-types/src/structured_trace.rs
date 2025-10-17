@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use alloy_primitives::{Address, Log, U256};
-use clickhouse::DbRow;
+use clickhouse::{DbRow, Row};
 use itertools::Itertools;
 use redefined::self_convert_redefined;
 use reth_primitives::{Bytes, B256};
@@ -215,7 +215,7 @@ impl TransactionTraceWithLogs {
 }
 
 #[serde_as]
-#[derive(Default, Debug, Clone, PartialEq, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Deserialize, Row)]
 pub struct TxTrace {
     pub block_number:    u64,
     pub trace:           Vec<TransactionTraceWithLogs>,
