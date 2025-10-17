@@ -6,6 +6,7 @@ pub mod executor;
 pub mod local_provider;
 pub mod missing_token_info;
 pub mod rpc_client;
+pub mod trace_converter;
 
 #[cfg(feature = "tests")]
 pub mod test_utils;

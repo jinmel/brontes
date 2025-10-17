@@ -1,39 +1,54 @@
 use std::sync::Arc;
 
-use alloy_provider::{Provider, RootProvider};
+use alloy_provider::{debug::DebugApi, Provider, RootProvider};
 use alloy_rpc_types::Log;
 use alloy_transport_http::Http;
-use brontes_types::{structured_trace::TxTrace, traits::TracingProvider};
+use brontes_types::{
+    structured_trace::TxTrace, timeboost_tx::TimeboostTransactionReceipt, traits::TracingProvider,
+    IntoZip,
+};
 use governor::{DefaultDirectRateLimiter, Jitter};
 use reth_primitives::{
     Address, BlockId, BlockNumber, BlockNumberOrTag, Bytecode, Bytes, Header, StorageValue, TxHash,
     B256,
 };
-use reth_rpc_types::{state::StateOverride, BlockOverrides, Filter, TransactionRequest};
+use reth_rpc_types::{
+    state::StateOverride,
+    trace::geth::{
+        CallConfig, GethDebugBuiltInTracerType, GethDebugTracerType, GethDebugTracingOptions,
+        GethTrace,
+    },
+    BlockOverrides, Filter, TransactionRequest,
+};
 
-use crate::rpc_client::{RpcClient, TraceOptions, TracerConfig};
+use crate::{rpc_client::RpcClient, trace_converter::transform_call_frame_to_parity_trace};
+
+const MIN_BLOCK_NUMBER_FOR_TRACE_REPLAY: u64 = 22207818;
 
 #[derive(Debug, Clone)]
 pub struct LocalProvider {
-    provider:   Arc<RootProvider<Http<reqwest::Client>, alloy_network::AnyNetwork>>,
+    provider:        Arc<RootProvider<Http<reqwest::Client>, alloy_network::AnyNetwork>>,
     provider_remote: Arc<RootProvider<Http<reqwest::Client>, alloy_network::AnyNetwork>>,
-    rpc_client: Arc<RpcClient>,
-    retries:    u8,
-    limiter:    Option<Arc<DefaultDirectRateLimiter>>,
+    retries:         u8,
+    limiter:         Option<Arc<DefaultDirectRateLimiter>>,
 }
 
 impl LocalProvider {
-    pub fn new(url: String, remote_rpc_url: String, retries: u8, limiter: Option<Arc<DefaultDirectRateLimiter>>) -> Self {
+    pub fn new(
+        url: String,
+        remote_rpc_url: String,
+        retries: u8,
+        limiter: Option<Arc<DefaultDirectRateLimiter>>,
+    ) -> Self {
         tracing::info!(target: "brontes", "creating local provider with url: {} remote_rpc_url: {}", url, remote_rpc_url);
 
         Self {
             provider: Arc::new(RootProvider::new_http(url.parse().unwrap())),
             provider_remote: Arc::new(RootProvider::new_http(remote_rpc_url.parse().unwrap())),
-            rpc_client: Arc::new(RpcClient::new(remote_rpc_url.parse().unwrap())),
             retries,
             limiter,
         }
-    }    
+    }
 }
 
 #[async_trait::async_trait]
@@ -86,35 +101,70 @@ impl TracingProvider for LocalProvider {
         block_id: BlockId,
     ) -> eyre::Result<Option<Vec<TxTrace>>> {
         tracing::trace!(target: "brontes", "replaying block transactions: {:?}", block_id);
-        match block_id {
+        let trace_opt = GethDebugTracingOptions::default()
+            .with_tracer(GethDebugTracerType::BuiltInTracer(GethDebugBuiltInTracerType::CallTracer))
+            .call_config(CallConfig::default().with_log());
+        let (traces, receipts) = match block_id {
             BlockId::Hash(hash) => {
-                let trace_options = TraceOptions {
-                    tracer: "callTracer".to_string(),
-                    tracer_config: Some(TracerConfig { with_log: true }),
-                };
-                let traces = self
-                    .rpc_client
-                    .debug_trace_block_by_hash(hash.block_hash, trace_options)
+                let block = self
+                    .provider
+                    .get_block_by_hash(hash.into(), true)
+                    .await?
+                    .ok_or(eyre::eyre!("block not found"))?;
+
+                if block.header.number.unwrap() < MIN_BLOCK_NUMBER_FOR_TRACE_REPLAY {
+                    return Err(eyre::eyre!("block number is less than 22207818, skipping trace replay"));
+                }
+
+                let traces: Vec<GethTrace> = self
+                    .provider_remote
+                    .debug_trace_block_by_hash(hash.block_hash, trace_opt)
                     .await?;
-                Ok(Some(traces))
+                let receipts: Option<Vec<TimeboostTransactionReceipt>> = self
+                    .provider_remote
+                    .get_block_receipts(BlockNumberOrTag::Number(block.header.number.unwrap()))
+                    .await?
+                    .map(|r| {
+                        r.into_iter()
+                            .map(TimeboostTransactionReceipt::from)
+                            .collect()
+                    });
+                (traces, receipts)
             }
             BlockId::Number(number) => {
-                let trace_options = TraceOptions {
-                    tracer: "callTracer".to_string(),
-                    tracer_config: Some(TracerConfig { with_log: true }),
-                };
-                if number.is_number() {
-                    let traces = self
-                        .rpc_client
-                        .debug_trace_block_by_number(number.as_number().unwrap(), trace_options)
-                        .await?;
-                    Ok(Some(traces))
-                } else {
-                    tracing::error!(target: "brontes", "number is not a numeric: {:?}", number);
-                    Ok(None)
+                if number.as_number().ok_or(eyre::eyre!("could not get block number"))? < MIN_BLOCK_NUMBER_FOR_TRACE_REPLAY {
+                    return Err(eyre::eyre!("block number is less than 22207818, skipping trace replay"));
                 }
+                
+                let traces = self
+                    .provider_remote
+                    .debug_trace_block_by_number(number.as_number().unwrap(), trace_opt)
+                    .await?;
+                let receipts: Option<Vec<TimeboostTransactionReceipt>> = self
+                    .provider_remote
+                    .get_block_receipts(number)
+                    .await?
+                    .map(|r| {
+                        r.into_iter()
+                            .map(TimeboostTransactionReceipt::from)
+                            .collect()
+                    });
+                (traces, receipts)
             }
+        };
+        if traces.is_empty() || receipts.is_none() {
+            return Ok(None);
         }
+        let receipts = receipts.unwrap();
+        let tx_traces = (traces, receipts)
+            .into_zip()
+            .map(|(trace, receipt)| (trace.unwrap(), receipt.unwrap()))
+            .map(|(trace, receipt)| match trace {
+                GethTrace::CallTracer(cf) => Ok(transform_call_frame_to_parity_trace(cf, &receipt)),
+                _ => Err(eyre::eyre!("unexpected trace type: {:?}", trace)),
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Some(tx_traces))
     }
 
     async fn block_receipts(
@@ -290,7 +340,8 @@ mod tests {
     async fn test_get_logs_with_address() {
         init_tracing();
         let url = get_rpc_url();
-        let remote_rpc_url = env::var("REMOTE_RPC_URL").expect("REMOTE_RPC_URL must be set for tests");
+        let remote_rpc_url =
+            env::var("REMOTE_RPC_URL").expect("REMOTE_RPC_URL must be set for tests");
         let provider = LocalProvider::new(url, remote_rpc_url, 3, None);
 
         // Create a filter with a specific address
